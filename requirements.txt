@@ -1,0 +1,5 @@
+PySide6>=6.5.0
+websockets>=11.0.3
+python-dotenv>=1.0.0
+pywin32>=305
+pyinstaller>=5.13.0 
