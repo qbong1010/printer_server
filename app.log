@@ -7,3 +7,11 @@
 2025-06-12 00:17:47,235 - INFO - WebSocket 서버 URL: ws://localhost:5001
 2025-06-12 00:17:47,235 - INFO - 데이터베이스 파일 위치: C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\orders.db
 2025-06-12 00:17:47,340 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 00:23:31,087 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 00:23:31,087 - INFO - 데이터베이스 파일 위치: C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\orders.db
+2025-06-12 00:23:31,190 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 00:33:07,313 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 00:33:07,313 - INFO - 데이터베이스 파일 위치: C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\orders.db
+2025-06-12 00:34:02,919 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 00:34:02,919 - INFO - 데이터베이스 파일 위치: C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\orders.db
+2025-06-12 00:34:03,028 - INFO - 프로그램이 성공적으로 시작되었습니다.

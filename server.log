@@ -17,3 +17,39 @@
 2025-06-12 00:19:39,656 - INFO - 주문 수신: {'order_id': '24', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
 2025-06-12 00:20:10,355 - INFO - 주문 수신: {'order_id': '24', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
 2025-06-12 00:20:28,751 - INFO - 클라이언트 연결 해제. 현재 연결 수: 0
+2025-06-12 00:23:13,765 - INFO - server listening on 127.0.0.1:5001
+2025-06-12 00:23:13,765 - INFO - server listening on [::1]:5001
+2025-06-12 00:23:13,765 - INFO - WebSocket 서버가 시작되었습니다. ws://localhost:5001
+2025-06-12 00:24:22,175 - INFO - connection open
+2025-06-12 00:24:22,176 - INFO - 새로운 클라이언트 연결됨. 현재 연결 수: 1
+2025-06-12 00:24:25,627 - INFO - 주문 수신: {'order_id': '25', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:24:26,858 - INFO - 주문 수신: {'order_id': '25', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:34:03,086 - INFO - connection open
+2025-06-12 00:34:03,086 - INFO - 새로운 클라이언트 연결됨. 현재 연결 수: 2
+2025-06-12 00:34:11,723 - INFO - 주문 수신: {'order_id': '25', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:34:18,927 - INFO - 주문 수신: {'order_id': '25', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:12,996 - INFO - connection open
+2025-06-12 00:36:12,997 - INFO - 새로운 클라이언트 연결됨. 현재 연결 수: 3
+2025-06-12 00:36:19,927 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:36,027 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:37,028 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:37,845 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:38,972 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:39,694 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:36:40,712 - INFO - 주문 수신: {'order_id': '26', 'customer_name': '가온감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:37:35,803 - INFO - 클라이언트 연결 해제. 현재 연결 수: 2
+2025-06-12 00:37:35,805 - ERROR - connection handler failed
+Traceback (most recent call last):
+  File "C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\venv\Lib\site-packages\websockets\asyncio\server.py", line 376, in conn_handler
+    await self.handler(connection)
+  File "C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\src\websocket\server.py", line 63, in handler
+    async for message in websocket:
+    ...<9 lines>...
+            logging.error(f"메시지 처리 중 오류 발생: {e}")
+  File "C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\venv\Lib\site-packages\websockets\asyncio\connection.py", line 242, in __aiter__
+    yield await self.recv()
+          ^^^^^^^^^^^^^^^^^
+  File "C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\venv\Lib\site-packages\websockets\asyncio\connection.py", line 322, in recv
+    raise self.protocol.close_exc from self.recv_exc
+websockets.exceptions.ConnectionClosedError: no close frame received or sent
+2025-06-12 00:37:36,231 - INFO - 클라이언트 연결 해제. 현재 연결 수: 1
