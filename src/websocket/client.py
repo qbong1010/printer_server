@@ -9,7 +9,8 @@ class WebSocketClient(QObject):
     
     def __init__(self):
         super().__init__()
-        self.ws_url = os.getenv('WEBSOCKET_SERVER_URL', 'ws://localhost:8765')
+        # ngrok URL을 환경 변수로 설정하거나 기본 로컬 WebSocket 서버 사용
+        self.ws_url = os.getenv('WEBSOCKET_SERVER_URL', 'ws://localhost:5001')
         self.running = False
     
     async def connect(self):

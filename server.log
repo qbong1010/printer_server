@@ -1,0 +1,19 @@
+2025-06-12 00:17:16,725 - INFO - server listening on [::1]:5001
+2025-06-12 00:17:16,725 - INFO - server listening on 127.0.0.1:5001
+2025-06-12 00:17:16,725 - INFO - WebSocket 서버가 시작되었습니다. ws://localhost:5001
+2025-06-12 00:18:01,834 - INFO - connection open
+2025-06-12 00:18:01,834 - INFO - 새로운 클라이언트 연결됨. 현재 연결 수: 1
+2025-06-12 00:18:03,821 - INFO - 주문 수신: {'order_id': '23', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '수비드 비프 포케', 'quantity': 1, 'price': 13900, 'options': ['100g', '소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:18:13,939 - INFO - 주문 수신: {'order_id': '23', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '수비드 비프 포케', 'quantity': 1, 'price': 13900, 'options': ['100g', '소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:18:42,224 - INFO - 주문 수신: {'order_id': '23', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '수비드 비프 포케', 'quantity': 1, 'price': 13900, 'options': ['100g', '소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:18:51,243 - INFO - 주문 수신: {'order_id': '23', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '수비드 비프 포케', 'quantity': 1, 'price': 13900, 'options': ['100g', '소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:18:53,284 - INFO - 클라이언트 연결 해제. 현재 연결 수: 0
+2025-06-12 00:18:53,577 - INFO - connection open
+2025-06-12 00:18:53,578 - INFO - 새로운 클라이언트 연결됨. 현재 연결 수: 1
+2025-06-12 00:18:55,209 - INFO - 주문 수신: {'order_id': '23', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '수비드 비프 포케', 'quantity': 1, 'price': 13900, 'options': ['100g', '소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:18:57,732 - INFO - 클라이언트 연결 해제. 현재 연결 수: 0
+2025-06-12 00:19:38,685 - INFO - connection open
+2025-06-12 00:19:38,685 - INFO - 새로운 클라이언트 연결됨. 현재 연결 수: 1
+2025-06-12 00:19:39,656 - INFO - 주문 수신: {'order_id': '24', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:20:10,355 - INFO - 주문 수신: {'order_id': '24', 'customer_name': '미래새한감정평가법인', 'items': [{'name': '아토키토 포케', 'quantity': 1, 'price': 10900, 'options': ['소스 안먹어요 X']}], 'payment_method': '현장결제'}
+2025-06-12 00:20:28,751 - INFO - 클라이언트 연결 해제. 현재 연결 수: 0
