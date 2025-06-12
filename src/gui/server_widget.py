@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
                                QLabel, QPushButton, QGroupBox,
-                               QSpinBox, QMessageBox)
+                               QSpinBox, QMessageBox, QComboBox,
+                               QLineEdit, QFormLayout)
 from PySide6.QtCore import Qt, Signal
 import subprocess
 import psutil
@@ -14,6 +15,9 @@ class ServerWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.ws_port = int(os.getenv('WEBSOCKET_SERVER_PORT', '5001'))
+        self.printer_type = os.getenv('PRINTER_TYPE', 'default')  # default 또는 escpos
+        self.pos_printer_type = os.getenv('POS_PRINTER_TYPE', 'usb')  # usb 또는 network
+        self.pos_printer_address = os.getenv('POS_PRINTER_ADDRESS', '')  # IP 주소 또는 USB 경로
         self.setup_ui()
         
     def setup_ui(self):
@@ -35,6 +39,36 @@ class ServerWidget(QWidget):
         port_layout.addWidget(self.port_apply_btn)
         port_group.setLayout(port_layout)
         layout.addWidget(port_group)
+        
+        # 프린터 설정 그룹
+        printer_group = QGroupBox("프린터 설정")
+        printer_layout = QFormLayout()
+        
+        # 프린터 종류 선택
+        self.printer_type_combo = QComboBox()
+        self.printer_type_combo.addItems(["기본 프린터", "POS 프린터"])
+        self.printer_type_combo.setCurrentText("기본 프린터" if self.printer_type == 'default' else "POS 프린터")
+        self.printer_type_combo.currentTextChanged.connect(self.on_printer_type_changed)
+        printer_layout.addRow("프린터 종류:", self.printer_type_combo)
+        
+        # POS 프린터 설정
+        self.pos_type_combo = QComboBox()
+        self.pos_type_combo.addItems(["USB 프린터", "네트워크 프린터"])
+        self.pos_type_combo.setCurrentText("USB 프린터" if self.pos_printer_type == 'usb' else "네트워크 프린터")
+        self.pos_type_combo.currentTextChanged.connect(self.on_pos_type_changed)
+        printer_layout.addRow("POS 프린터 타입:", self.pos_type_combo)
+        
+        # 프린터 주소/경로 입력
+        self.printer_address_input = QLineEdit(self.pos_printer_address)
+        printer_layout.addRow("프린터 주소:", self.printer_address_input)
+        
+        # 설정 적용 버튼
+        self.printer_apply_btn = QPushButton("프린터 설정 적용")
+        self.printer_apply_btn.clicked.connect(self.apply_printer_settings)
+        printer_layout.addRow(self.printer_apply_btn)
+        
+        printer_group.setLayout(printer_layout)
+        layout.addWidget(printer_group)
         
         # 서버 상태 그룹
         server_group = QGroupBox("서버 상태")
@@ -65,6 +99,9 @@ class ServerWidget(QWidget):
         
         # 초기 상태 체크
         self.check_server_status()
+        
+        # 초기 상태 설정
+        self.update_printer_ui_state()
         
     def check_server_status(self):
         """서버 상태를 주기적으로 체크"""
@@ -176,3 +213,58 @@ class ServerWidget(QWidget):
                     "포트 변경",
                     f"포트가 {new_port}로 변경되었습니다."
                 ) 
+
+    def on_printer_type_changed(self, text):
+        """프린터 종류 변경 시 UI 상태 업데이트"""
+        is_pos = text == "POS 프린터"
+        self.pos_type_combo.setEnabled(is_pos)
+        self.printer_address_input.setEnabled(is_pos)
+        self.update_printer_ui_state()
+        
+    def on_pos_type_changed(self, text):
+        """POS 프린터 타입 변경 시 UI 상태 업데이트"""
+        is_network = text == "네트워크 프린터"
+        self.printer_address_input.setPlaceholderText(
+            "프린터 IP 주소 입력" if is_network else "USB 포트 경로 입력"
+        )
+        
+    def update_printer_ui_state(self):
+        """프린터 설정 UI 상태 업데이트"""
+        is_pos = self.printer_type_combo.currentText() == "POS 프린터"
+        self.pos_type_combo.setEnabled(is_pos)
+        self.printer_address_input.setEnabled(is_pos)
+        
+        is_network = self.pos_type_combo.currentText() == "네트워크 프린터"
+        self.printer_address_input.setPlaceholderText(
+            "프린터 IP 주소 입력" if is_network else "USB 포트 경로 입력"
+        )
+        
+    def apply_printer_settings(self):
+        """프린터 설정 적용"""
+        try:
+            # 프린터 타입 설정
+            printer_type = 'escpos' if self.printer_type_combo.currentText() == "POS 프린터" else 'default'
+            pos_type = 'network' if self.pos_type_combo.currentText() == "네트워크 프린터" else 'usb'
+            
+            # 환경변수 업데이트
+            os.environ['PRINTER_TYPE'] = printer_type
+            os.environ['POS_PRINTER_TYPE'] = pos_type
+            os.environ['POS_PRINTER_ADDRESS'] = self.printer_address_input.text()
+            
+            # 설정 저장
+            self.printer_type = printer_type
+            self.pos_printer_type = pos_type
+            self.pos_printer_address = self.printer_address_input.text()
+            
+            QMessageBox.information(
+                self,
+                "설정 완료",
+                "프린터 설정이 저장되었습니다."
+            )
+            
+        except Exception as e:
+            QMessageBox.warning(
+                self,
+                "설정 오류",
+                f"프린터 설정 중 오류가 발생했습니다: {str(e)}"
+            ) 

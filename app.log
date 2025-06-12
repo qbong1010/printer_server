@@ -68,3 +68,6 @@
 2025-06-12 18:06:00,750 - INFO - WebSocket 서버 URL: ws://localhost:5001
 2025-06-12 18:06:00,751 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
 2025-06-12 18:06:03,195 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 20:05:54,981 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 20:05:54,982 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 20:05:57,406 - INFO - 프로그램이 성공적으로 시작되었습니다.
