@@ -8,12 +8,15 @@ import psutil
 import requests
 import os
 
+from ..printer.manager import PrinterManager
+
 class ServerWidget(QWidget):
     server_status_changed = Signal(bool)
     ngrok_status_changed = Signal(bool)
     
     def __init__(self):
         super().__init__()
+        self.printer_manager = PrinterManager()
         self.ws_port = int(os.getenv('WEBSOCKET_SERVER_PORT', '5001'))
         self.printer_type = os.getenv('PRINTER_TYPE', 'default')  # default 또는 escpos
         self.pos_printer_type = os.getenv('POS_PRINTER_TYPE', 'usb')  # usb 또는 network
@@ -50,6 +53,15 @@ class ServerWidget(QWidget):
         self.printer_type_combo.setCurrentText("기본 프린터" if self.printer_type == 'default' else "POS 프린터")
         self.printer_type_combo.currentTextChanged.connect(self.on_printer_type_changed)
         printer_layout.addRow("프린터 종류:", self.printer_type_combo)
+
+        # 기본 프린터 목록
+        self.default_printer_combo = QComboBox()
+        self.default_printer_combo.addItems(self.printer_manager.list_printers())
+        current_default = self.printer_manager.printer_name
+        index = self.default_printer_combo.findText(current_default)
+        if index >= 0:
+            self.default_printer_combo.setCurrentIndex(index)
+        printer_layout.addRow("기본 프린터:", self.default_printer_combo)
         
         # POS 프린터 설정
         self.pos_type_combo = QComboBox()
@@ -219,6 +231,7 @@ class ServerWidget(QWidget):
         is_pos = text == "POS 프린터"
         self.pos_type_combo.setEnabled(is_pos)
         self.printer_address_input.setEnabled(is_pos)
+        self.default_printer_combo.setEnabled(not is_pos)
         self.update_printer_ui_state()
         
     def on_pos_type_changed(self, text):
@@ -233,6 +246,7 @@ class ServerWidget(QWidget):
         is_pos = self.printer_type_combo.currentText() == "POS 프린터"
         self.pos_type_combo.setEnabled(is_pos)
         self.printer_address_input.setEnabled(is_pos)
+        self.default_printer_combo.setEnabled(not is_pos)
         
         is_network = self.pos_type_combo.currentText() == "네트워크 프린터"
         self.printer_address_input.setPlaceholderText(
@@ -245,12 +259,19 @@ class ServerWidget(QWidget):
             # 프린터 타입 설정
             printer_type = 'escpos' if self.printer_type_combo.currentText() == "POS 프린터" else 'default'
             pos_type = 'network' if self.pos_type_combo.currentText() == "네트워크 프린터" else 'usb'
-            
+
+            if printer_type == 'default':
+                selected = self.default_printer_combo.currentText()
+                self.printer_manager.set_printer(selected)
+
             # 환경변수 업데이트
             os.environ['PRINTER_TYPE'] = printer_type
             os.environ['POS_PRINTER_TYPE'] = pos_type
             os.environ['POS_PRINTER_ADDRESS'] = self.printer_address_input.text()
-            
+
+            if printer_type == 'default':
+                os.environ['DEFAULT_PRINTER_NAME'] = self.printer_manager.printer_name
+
             # 설정 저장
             self.printer_type = printer_type
             self.pos_printer_type = pos_type

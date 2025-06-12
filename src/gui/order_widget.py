@@ -1,11 +1,23 @@
-from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
-    QTableWidget, QTableWidgetItem, QPushButton, QLabel)
+from PySide6.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QTableWidget,
+    QTableWidgetItem,
+    QPushButton,
+    QLabel,
+    QMessageBox,
+)
 from PySide6.QtCore import Qt, Slot
+
+from ..printer.manager import PrinterManager
 
 class OrderWidget(QWidget):
     def __init__(self):
         super().__init__()
+        self.printer_manager = PrinterManager()
         self.setup_ui()
+        self.orders = []
         
     def setup_ui(self):
         # 메인 레이아웃
@@ -58,16 +70,22 @@ class OrderWidget(QWidget):
         # 선택된 주문의 영수증 출력
         current_row = self.order_table.currentRow()
         if current_row >= 0:
-            # TODO: 프린터 관리자를 통해 영수증 출력
-            pass
+            order_item = self.order_table.item(current_row, 0)
+            order_data = order_item.data(Qt.UserRole)
+            if order_data:
+                success = self.printer_manager.print_receipt(order_data)
+                if not success:
+                    QMessageBox.warning(self, "출력 실패", "영수증 출력 중 오류가 발생했습니다.")
     
     def add_order(self, order_data):
         """새로운 주문을 테이블에 추가"""
         row_position = self.order_table.rowCount()
         self.order_table.insertRow(row_position)
-        
+
         # 주문 데이터 설정
-        self.order_table.setItem(row_position, 0, QTableWidgetItem(order_data["order_id"]))
+        item_id = QTableWidgetItem(order_data["order_id"])
+        item_id.setData(Qt.UserRole, order_data)
+        self.order_table.setItem(row_position, 0, item_id)
         self.order_table.setItem(row_position, 1, QTableWidgetItem(order_data["customer_name"]))
         
         # 메뉴 항목 구성
@@ -78,4 +96,5 @@ class OrderWidget(QWidget):
         self.order_table.setItem(row_position, 2, QTableWidgetItem(items_text))
         
         self.order_table.setItem(row_position, 3, QTableWidgetItem(order_data["payment_method"]))
-        self.order_table.setItem(row_position, 4, QTableWidgetItem("신규")) 
+        self.order_table.setItem(row_position, 4, QTableWidgetItem("신규"))
+        self.orders.append(order_data)
