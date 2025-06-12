@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, 
-                               QLabel, QPushButton, QGroupBox)
+                               QLabel, QPushButton, QGroupBox,
+                               QSpinBox, QMessageBox)
 from PySide6.QtCore import Qt, Signal
 import subprocess
 import psutil
@@ -17,6 +18,23 @@ class ServerWidget(QWidget):
         
     def setup_ui(self):
         layout = QVBoxLayout(self)
+        
+        # 포트 설정 그룹
+        port_group = QGroupBox("포트 설정")
+        port_layout = QHBoxLayout()
+        
+        port_label = QLabel("웹소켓 포트:")
+        self.port_spinbox = QSpinBox()
+        self.port_spinbox.setRange(1024, 65535)  # 일반적인 사용자 포트 범위
+        self.port_spinbox.setValue(self.ws_port)
+        self.port_apply_btn = QPushButton("적용")
+        self.port_apply_btn.clicked.connect(self.apply_port_change)
+        
+        port_layout.addWidget(port_label)
+        port_layout.addWidget(self.port_spinbox)
+        port_layout.addWidget(self.port_apply_btn)
+        port_group.setLayout(port_layout)
+        layout.addWidget(port_group)
         
         # 서버 상태 그룹
         server_group = QGroupBox("서버 상태")
@@ -118,13 +136,43 @@ class ServerWidget(QWidget):
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.TimeoutExpired):
                     pass
 
-            # 새로운 ngrok 프로세스 시작 - 환경변수의 포트 사용
+            # 새로운 ngrok 프로세스 시작 - static URL과 환경변수의 포트 사용
             subprocess.Popen(
-                ['powershell', '-Command', f'ngrok http {self.ws_port}'],
+                ['powershell', '-Command', f'ngrok http --url=calm-remotely-longhorn.ngrok-free.app {self.ws_port}'],
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
             
         except Exception as e:
             print(f"ngrok 재시작 중 오류 발생: {e}")
         finally:
-            self.check_server_status() 
+            self.check_server_status()
+
+    def apply_port_change(self):
+        """포트 변경 적용"""
+        new_port = self.port_spinbox.value()
+        if new_port != self.ws_port:
+            # 서버가 실행 중인지 확인
+            if self.is_websocket_server_running():
+                reply = QMessageBox.question(
+                    self,
+                    "포트 변경",
+                    "서버가 실행 중입니다. 서버를 재시작하시겠습니까?",
+                    QMessageBox.Yes | QMessageBox.No
+                )
+                if reply == QMessageBox.Yes:
+                    self.ws_port = new_port
+                    # 환경변수 업데이트 (현재 세션에만 적용)
+                    os.environ['WEBSOCKET_SERVER_PORT'] = str(new_port)
+                    self.restart_websocket_server()
+                    self.restart_ngrok()
+                else:
+                    # 변경 취소시 이전 값으로 복원
+                    self.port_spinbox.setValue(self.ws_port)
+            else:
+                self.ws_port = new_port
+                os.environ['WEBSOCKET_SERVER_PORT'] = str(new_port)
+                QMessageBox.information(
+                    self,
+                    "포트 변경",
+                    f"포트가 {new_port}로 변경되었습니다."
+                ) 
