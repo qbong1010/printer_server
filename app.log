@@ -15,3 +15,50 @@
 2025-06-12 00:34:02,919 - INFO - WebSocket 서버 URL: ws://localhost:5001
 2025-06-12 00:34:02,919 - INFO - 데이터베이스 파일 위치: C:\Users\Joey\OneDrive\Desktop\아토키토\printer_server\orders.db
 2025-06-12 00:34:03,028 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 10:10:16,098 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 10:10:16,098 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 10:10:16,487 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 10:15:38,727 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 10:15:38,727 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 10:15:39,033 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 10:40:13,979 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 10:40:13,979 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 10:40:14,323 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 10:43:47,684 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 10:43:47,685 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 10:43:52,144 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 14:48:58,325 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 14:48:58,325 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 14:49:02,956 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 16:33:47,833 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 16:33:47,834 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 16:33:47,846 - INFO - 웹소켓 서버가 시작되었습니다.
+2025-06-12 16:33:54,351 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 16:34:16,495 - INFO - 웹소켓 서버가 종료되었습니다.
+2025-06-12 16:34:21,122 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 16:34:21,122 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 16:34:21,139 - INFO - 웹소켓 서버가 시작되었습니다.
+2025-06-12 16:34:27,542 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 16:39:10,635 - INFO - 웹소켓 서버가 종료되었습니다.
+2025-06-12 16:40:04,959 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 16:40:04,959 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 16:40:04,972 - INFO - 웹소켓 서버가 시작되었습니다.
+2025-06-12 16:40:11,436 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 16:40:30,848 - INFO - 웹소켓 서버가 종료되었습니다.
+2025-06-12 16:50:23,326 - INFO - WebSocket 서버 URL: ws://calm-remotely-longhorn.ngrok-free.app
+2025-06-12 16:50:23,326 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 16:50:23,344 - INFO - 웹소켓 서버가 시작되었습니다.
+2025-06-12 16:50:27,757 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 17:12:13,021 - INFO - 웹소켓 서버가 종료되었습니다.
+2025-06-12 17:16:09,127 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 17:16:09,127 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 17:16:11,582 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 17:16:48,937 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 17:16:48,938 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 17:16:51,371 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 17:31:10,128 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 17:31:10,128 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 17:31:12,566 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-12 17:38:04,970 - INFO - WebSocket 서버 URL: ws://localhost:5001
+2025-06-12 17:38:04,971 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
+2025-06-12 17:38:07,350 - INFO - 프로그램이 성공적으로 시작되었습니다.
