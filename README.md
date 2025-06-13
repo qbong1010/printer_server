@@ -4,7 +4,7 @@ Windows용 데스크탑 주문 관리 및 프린터 통합 위젯입니다.
 
 ## 주요 기능
 
-- 실시간 WebSocket 주문 수신
+- Supabase를 이용한 주문 수신
 - GUI에 주문 내역 표시
 - 자동 영수증 출력
 - SQLite 주문 로그 저장
@@ -25,7 +25,9 @@ pip install -r requirements.txt
 2. 환경 변수 설정:
 `.env` 파일을 생성하고 다음 내용을 추가합니다:
 ```
-WEBSOCKET_SERVER_URL=ws://your-server:port
+SUPABASE_PROJECT_ID=your-project-id
+SUPABASE_API_KEY=your-api-key
+SUPABASE_URL=https://your-project-id.supabase.co
 DEFAULT_PRINTER_NAME=your-printer-name
 DEBUG=True
 ```
