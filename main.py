@@ -28,6 +28,9 @@ def main():
     project_id = os.getenv('SUPABASE_PROJECT_ID')
     if not supabase_url and project_id:
         supabase_url = f"https://{project_id}.supabase.co"
+    if not supabase_url:
+        logging.critical("Supabase URL is not configured. Check .env")
+        sys.exit(1)
     logging.info(f"Supabase URL: {supabase_url}")
     
     # 데이터베이스 파일 위치 출력
