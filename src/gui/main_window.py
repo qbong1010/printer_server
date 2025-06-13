@@ -1,8 +1,7 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget
 from PySide6.QtCore import Qt
 from .order_widget import OrderWidget
-from .server_widget import ServerWidget
-import asyncio
+from .printer_widget import PrinterWidget
 from src.supabase_client import SupabaseClient
 
 class MainWindow(QMainWindow):
@@ -15,29 +14,46 @@ class MainWindow(QMainWindow):
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        # 레이아웃 설정
+        # 메인 레이아웃 설정
         layout = QVBoxLayout(central_widget)
         
-        # 서버 상태 위젯 추가
-        self.server_widget = ServerWidget()
-        layout.addWidget(self.server_widget)
+        # 탭 위젯 생성
+        tab_widget = QTabWidget()
         
-        # 주문 위젯 추가
+        # 주문 관리 탭
         self.order_widget = OrderWidget()
-        layout.addWidget(self.order_widget)
+        tab_widget.addTab(self.order_widget, "주문 관리")
+        
+        # 프린터 설정 탭
+        self.printer_widget = PrinterWidget()
+        tab_widget.addTab(self.printer_widget, "프린터 설정")
+        
+        layout.addWidget(tab_widget)
 
-        # 💡 SupabaseClient 연결
-        self.ws_client = SupabaseClient()
-        self.ws_client.order_received.connect(self.order_widget.add_order)
-
-        # 💡 Supabase 폴링 실행 (비동기로 실행)
-        import threading
-        threading.Thread(target=lambda: asyncio.run(self.ws_client.connect()), daemon=True).start()
+        # SupabaseClient 연결
+        self.supabase_client = SupabaseClient()
         
         # 윈도우 설정
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #f0f0f0;
+            }
+            QTabWidget::pane {
+                border: 1px solid #cccccc;
+                background: white;
+            }
+            QTabBar::tab {
+                background: #e1e1e1;
+                border: 1px solid #cccccc;
+                padding: 8px 12px;
+                margin-right: 2px;
+            }
+            QTabBar::tab:selected {
+                background: white;
+                border-bottom-color: white;
+            }
+            QTabBar::tab:hover {
+                background: #f0f0f0;
             }
             QGroupBox {
                 font-weight: bold;

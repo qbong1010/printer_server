@@ -1,13 +1,57 @@
 import os
 import win32print
+import json
+from pathlib import Path
 
 from .escpos_printer import print_receipt as escpos_print_receipt
 
 
 class PrinterManager:
     def __init__(self):
-        self.printer_name = os.getenv("DEFAULT_PRINTER_NAME") or win32print.GetDefaultPrinter()
-        self.printer_type = os.getenv("PRINTER_TYPE", "default")
+        self.config_file = Path("printer_config.json")
+        self.load_config()
+
+    def load_config(self):
+        """프린터 설정을 로드합니다."""
+        try:
+            if self.config_file.exists():
+                with open(self.config_file, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    self.printer_name = config.get("printer_name")
+                    self.printer_type = config.get("printer_type", "default")
+            else:
+                self.printer_name = win32print.GetDefaultPrinter()
+                self.printer_type = "default"
+        except Exception as e:
+            print(f"설정 로드 오류: {e}")
+            self.printer_name = win32print.GetDefaultPrinter()
+            self.printer_type = "default"
+
+    def save_config(self):
+        """프린터 설정을 저장합니다."""
+        try:
+            config = {
+                "printer_name": self.printer_name,
+                "printer_type": self.printer_type
+            }
+            with open(self.config_file, "w", encoding="utf-8") as f:
+                json.dump(config, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            print(f"설정 저장 오류: {e}")
+
+    def get_current_printer(self):
+        """현재 선택된 프린터 이름을 반환합니다."""
+        return self.printer_name
+
+    def set_printer(self, name):
+        """프린터를 설정합니다."""
+        self.printer_name = name
+        self.save_config()
+
+    def set_printer_type(self, printer_type):
+        """프린터 타입을 설정합니다."""
+        self.printer_type = printer_type
+        self.save_config()
 
     def print_receipt(self, order_data):
         """주문 데이터를 기반으로 영수증 출력"""
@@ -39,18 +83,17 @@ class PrinterManager:
 
     @staticmethod
     def list_printers():
+        """사용 가능한 프린터 목록을 반환합니다."""
         flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
         return [p[2] for p in win32print.EnumPrinters(flags)]
 
     @staticmethod
     def get_default_printer():
+        """기본 프린터 이름을 반환합니다."""
         return win32print.GetDefaultPrinter()
 
-    def set_printer(self, name):
-        self.printer_name = name
-        os.environ["DEFAULT_PRINTER_NAME"] = name
-
     def _generate_receipt_content(self, order_data):
+        """영수증 내용을 생성합니다."""
         lines = [
             "=" * 40,
             "주문 영수증",

@@ -8,7 +8,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QTimer
 
 from ..printer.manager import PrinterManager
 
@@ -19,6 +19,11 @@ class OrderWidget(QWidget):
         self.setup_ui()
         self.orders = []
         
+        # 주기적으로 주문 목록 갱신
+        self.refresh_timer = QTimer()
+        self.refresh_timer.timeout.connect(self.refresh_orders)
+        self.refresh_timer.start(5000)  # 5초마다 갱신
+        
     def setup_ui(self):
         # 메인 레이아웃
         layout = QVBoxLayout(self)
@@ -28,6 +33,10 @@ class OrderWidget(QWidget):
         title_label = QLabel("실시간 주문 현황")
         title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         top_layout.addWidget(title_label)
+        
+        refresh_btn = QPushButton("새로고침")
+        refresh_btn.clicked.connect(self.refresh_orders)
+        top_layout.addWidget(refresh_btn)
         
         print_btn = QPushButton("영수증 출력")
         print_btn.clicked.connect(self.print_receipt)
@@ -66,6 +75,25 @@ class OrderWidget(QWidget):
         """)
     
     @Slot()
+    def refresh_orders(self):
+        """주문 목록을 새로고침합니다."""
+        try:
+            from ..supabase_client import SupabaseClient
+            client = SupabaseClient()
+            orders = client.get_orders()
+            
+            # 테이블 초기화
+            self.order_table.setRowCount(0)
+            self.orders = []
+            
+            # 새로운 주문 데이터 추가
+            for order in orders:
+                self.add_order(order)
+                
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"주문 목록 갱신 중 오류가 발생했습니다: {str(e)}")
+    
+    @Slot()
     def print_receipt(self):
         # 선택된 주문의 영수증 출력
         current_row = self.order_table.currentRow()
@@ -79,22 +107,30 @@ class OrderWidget(QWidget):
     
     def add_order(self, order_data):
         """새로운 주문을 테이블에 추가"""
-        row_position = self.order_table.rowCount()
-        self.order_table.insertRow(row_position)
+        try:
+            row_position = self.order_table.rowCount()
+            self.order_table.insertRow(row_position)
 
-        # 주문 데이터 설정
-        item_id = QTableWidgetItem(order_data["order_id"])
-        item_id.setData(Qt.UserRole, order_data)
-        self.order_table.setItem(row_position, 0, item_id)
-        self.order_table.setItem(row_position, 1, QTableWidgetItem(order_data["customer_name"]))
-        
-        # 메뉴 항목 구성
-        items_text = "\n".join([
-            f"{item['name']} x{item['quantity']}"
-            for item in order_data["items"]
-        ])
-        self.order_table.setItem(row_position, 2, QTableWidgetItem(items_text))
-        
-        self.order_table.setItem(row_position, 3, QTableWidgetItem(order_data["payment_method"]))
-        self.order_table.setItem(row_position, 4, QTableWidgetItem("신규"))
-        self.orders.append(order_data)
+            # 주문 데이터 설정
+            item_id = QTableWidgetItem(order_data.get("order_id", "N/A"))
+            item_id.setData(Qt.UserRole, order_data)
+            self.order_table.setItem(row_position, 0, item_id)
+            
+            # customer_name이 없는 경우 기본값 사용
+            customer_name = order_data.get("customer_name", "고객")
+            self.order_table.setItem(row_position, 1, QTableWidgetItem(customer_name))
+            
+            # 메뉴 항목 구성
+            items = order_data.get("items", [])
+            items_text = "\n".join([
+                f"{item.get('name', 'N/A')} x{item.get('quantity', 1)}"
+                for item in items
+            ])
+            self.order_table.setItem(row_position, 2, QTableWidgetItem(items_text))
+            
+            payment_method = order_data.get("payment_method", "미결제")
+            self.order_table.setItem(row_position, 3, QTableWidgetItem(payment_method))
+            self.order_table.setItem(row_position, 4, QTableWidgetItem("신규"))
+            self.orders.append(order_data)
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"주문 추가 중 오류가 발생했습니다: {str(e)}")

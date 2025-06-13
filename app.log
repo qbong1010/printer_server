@@ -71,3 +71,19 @@
 2025-06-12 20:05:54,981 - INFO - WebSocket 서버 URL: ws://localhost:5001
 2025-06-12 20:05:54,982 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\printer_server_websocket\orders.db
 2025-06-12 20:05:57,406 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-13 16:06:43,139 - CRITICAL - Supabase URL is not configured. Check .env
+2025-06-13 16:09:54,916 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-13 16:09:54,916 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\posprinter_supabase\orders.db
+2025-06-13 16:09:59,419 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-13 16:56:37,828 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-13 16:56:37,828 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\posprinter_supabase\orders.db
+2025-06-13 16:56:42,442 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-13 17:42:14,636 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-13 17:42:14,637 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\posprinter_supabase\orders.db
+2025-06-13 17:42:19,184 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-13 17:44:15,813 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-13 17:44:15,814 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\posprinter_supabase\orders.db
+2025-06-13 17:44:16,183 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-13 17:50:27,338 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-13 17:50:27,339 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\posprinter_supabase\orders.db
+2025-06-13 17:50:27,730 - INFO - 프로그램이 성공적으로 시작되었습니다.

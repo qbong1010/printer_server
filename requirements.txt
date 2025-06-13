@@ -4,3 +4,5 @@ python-dotenv>=1.0.0
 pywin32>=305
 pyinstaller>=5.13.0
 requests>=2.31.0
+escpos>=2.0.0
+psutil>=5.9.0
