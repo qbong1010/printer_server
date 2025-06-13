@@ -23,9 +23,12 @@ def main():
     # 환경 변수 로드
     load_dotenv()
     
-    # WebSocket 서버 포트 정보 출력
-    ws_url = os.getenv('WEBSOCKET_SERVER_URL', 'ws://localhost:5001')
-    logging.info(f"WebSocket 서버 URL: {ws_url}")
+    # Supabase 연결 정보 출력
+    supabase_url = os.getenv('SUPABASE_URL')
+    project_id = os.getenv('SUPABASE_PROJECT_ID')
+    if not supabase_url and project_id:
+        supabase_url = f"https://{project_id}.supabase.co"
+    logging.info(f"Supabase URL: {supabase_url}")
     
     # 데이터베이스 파일 위치 출력
     db_path = os.path.abspath("orders.db")
