@@ -3,7 +3,7 @@ from PySide6.QtCore import Qt
 from .order_widget import OrderWidget
 from .server_widget import ServerWidget
 import asyncio
-from ..supabase_client import SupabaseClient
+from src.supabase_client import SupabaseClient
 
 class MainWindow(QMainWindow):
     def __init__(self):
