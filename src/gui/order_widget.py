@@ -11,7 +11,8 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Slot, QTimer
 import logging
 
-from ..database.cache import SupabaseCache
+# Use an absolute import so this module works when executed directly.
+from src.database.cache import SupabaseCache
 
 from ..printer.manager import PrinterManager
 
