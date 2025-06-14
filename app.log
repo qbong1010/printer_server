@@ -87,3 +87,25 @@
 2025-06-13 17:50:27,338 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
 2025-06-13 17:50:27,339 - INFO - 데이터베이스 파일 위치: C:\Users\dohwa\Desktop\MyPlugin\posprinter_supabase\orders.db
 2025-06-13 17:50:27,730 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 13:10:55,740 - CRITICAL - Supabase URL is not configured. Check .env
+2025-06-14 13:12:34,202 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 13:12:34,203 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 13:12:34,552 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 15:21:20,227 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 15:21:20,228 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 15:21:20,714 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 15:24:46,157 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 15:24:46,162 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 15:24:46,425 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 15:26:47,687 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 15:26:47,687 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 15:26:47,815 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 15:29:10,696 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 15:29:10,696 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 15:29:10,843 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 15:30:04,581 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 15:30:04,582 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 15:30:04,765 - INFO - 프로그램이 성공적으로 시작되었습니다.
+2025-06-14 15:33:40,964 - INFO - Supabase URL: https://rawkkzxzkiuauuxrjxtd.supabase.co
+2025-06-14 15:33:40,965 - INFO - 데이터베이스 파일 위치: C:\Users\POS\Desktop\posprinter_supabase\orders.db
+2025-06-14 15:33:41,125 - INFO - 프로그램이 성공적으로 시작되었습니다.

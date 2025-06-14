@@ -43,6 +43,10 @@ class PrinterManager:
         """현재 선택된 프린터 이름을 반환합니다."""
         return self.printer_name
 
+    def get_printer_type(self):
+        """현재 프린터 타입을 반환합니다."""
+        return self.printer_type
+
     def set_printer(self, name):
         """프린터를 설정합니다."""
         self.printer_name = name
@@ -50,6 +54,8 @@ class PrinterManager:
 
     def set_printer_type(self, printer_type):
         """프린터 타입을 설정합니다."""
+        if printer_type not in ["escpos", "default"]:
+            raise ValueError("프린터 타입은 'escpos' 또는 'default'여야 합니다.")
         self.printer_type = printer_type
         self.save_config()
 
@@ -61,7 +67,10 @@ class PrinterManager:
                 return True
             except Exception as e:
                 print(f"ESC/POS 프린터 오류: {e}")
-                return False
+                print("윈도우 기본 프린터로 출력을 시도합니다...")
+                # ESC/POS 실패 시 윈도우 프린터로 폴백
+                self.printer_type = "default"
+                return self.print_receipt(order_data)
 
         try:
             handle = win32print.OpenPrinter(self.printer_name)
@@ -70,7 +79,8 @@ class PrinterManager:
                 job = win32print.StartDocPrinter(handle, 1, ("Receipt", None, "RAW"))
                 try:
                     win32print.StartPagePrinter(handle)
-                    win32print.WritePrinter(handle, content.encode("utf-8"))
+                    encoded_content = content.encode("cp949", errors="replace")
+                    win32print.WritePrinter(handle, encoded_content)
                     win32print.EndPagePrinter(handle)
                 finally:
                     win32print.EndDocPrinter(handle)
@@ -99,7 +109,8 @@ class PrinterManager:
             "주문 영수증",
             "=" * 40,
             f"주문번호: {order_data['order_id']}",
-            f"고객명: {order_data['customer_name']}",
+            f"회사명: {order_data['company_name']}",
+            f"주문시간: {order_data['created_at']}",
             "-" * 40,
             "주문 내역:",
             "-" * 40,
@@ -113,14 +124,16 @@ class PrinterManager:
             lines.append(f"  가격: {item['price']:,}원 x {item['quantity']} = {amount:,}원")
             if item.get('options'):
                 for option in item['options']:
-                    lines.append(f"  - {option}")
+                    lines.append(f"  - {option['name']}: {option['price']:,}원")
 
         lines.extend([
             "-" * 40,
             f"총 금액: {total:,}원",
-            f"결제 방법: {order_data['payment_method']}",
+            f"매장식사: {'예' if order_data['is_dine_in'] else '아니오'}",
             "=" * 40,
             "\n" * 5,
+            "\x1B\x69",  # ESC i - 자동 절단 명령어
+            "\x1D\x56\x41",  # GS V A - 전체 절단 명령어
         ])
 
         return "\n".join(lines)

@@ -46,9 +46,9 @@ class OrderWidget(QWidget):
         
         # 주문 테이블
         self.order_table = QTableWidget()
-        self.order_table.setColumnCount(5)
+        self.order_table.setColumnCount(6)
         self.order_table.setHorizontalHeaderLabels([
-            "주문번호", "고객명", "메뉴", "결제방법", "상태"
+            "주문번호", "회사명", "메뉴", "매장식사", "총액", "상태"
         ])
         self.order_table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.order_table)
@@ -116,9 +116,9 @@ class OrderWidget(QWidget):
             item_id.setData(Qt.UserRole, order_data)
             self.order_table.setItem(row_position, 0, item_id)
             
-            # customer_name이 없는 경우 기본값 사용
-            customer_name = order_data.get("customer_name", "고객")
-            self.order_table.setItem(row_position, 1, QTableWidgetItem(customer_name))
+            # 회사명
+            company_name = order_data.get("company_name", "N/A")
+            self.order_table.setItem(row_position, 1, QTableWidgetItem(company_name))
             
             # 메뉴 항목 구성
             items = order_data.get("items", [])
@@ -128,9 +128,18 @@ class OrderWidget(QWidget):
             ])
             self.order_table.setItem(row_position, 2, QTableWidgetItem(items_text))
             
-            payment_method = order_data.get("payment_method", "미결제")
-            self.order_table.setItem(row_position, 3, QTableWidgetItem(payment_method))
-            self.order_table.setItem(row_position, 4, QTableWidgetItem("신규"))
+            # 매장식사 여부
+            is_dine_in = "매장식사" if order_data.get("is_dine_in", True) else "포장"
+            self.order_table.setItem(row_position, 3, QTableWidgetItem(is_dine_in))
+            
+            # 총액
+            total_price = f"{order_data.get('total_price', 0):,}원"
+            self.order_table.setItem(row_position, 4, QTableWidgetItem(total_price))
+            
+            # 상태
+            status = "출력완료" if order_data.get("is_printed", False) else "신규"
+            self.order_table.setItem(row_position, 5, QTableWidgetItem(status))
+            
             self.orders.append(order_data)
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 추가 중 오류가 발생했습니다: {str(e)}")
