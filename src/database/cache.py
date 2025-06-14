@@ -7,6 +7,20 @@ import requests
 SCHEMA_PATH = Path(__file__).parent / "supabase_schema.sql"
 DB_PATH = Path("cache.db")
 
+# Supabase 테이블 이름을 명시적으로 나열하여 허용 리스트를 구성합니다.
+VALID_TABLES = {
+    "company",
+    "menu_category",
+    "menu_item",
+    "menu_item_option_group",
+    "option_group",
+    "option_group_item",
+    "option_item",
+    "order",
+    "order_item",
+    "order_item_option",
+}
+
 class SupabaseCache:
     """SQLite에 Supabase 테이블을 캐싱하고 최신 주문을 감지합니다."""
 
@@ -46,6 +60,8 @@ class SupabaseCache:
         """Supabase에서 테이블을 가져와 SQLite에 저장합니다."""
         if not self.base_url:
             return
+        if table_name not in VALID_TABLES:
+            raise ValueError(f"Invalid table name: {table_name}")
         params = {"select": "*"}
         resp = requests.get(
             f"{self.base_url}/rest/v1/{table_name}", headers=self.headers, params=params
@@ -56,10 +72,11 @@ class SupabaseCache:
             return
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(f"DELETE FROM {table_name}")
+        cursor.execute(f'DELETE FROM "{table_name}"')
         cols = list(rows[0].keys())
         placeholders = ",".join(["?"] * len(cols))
-        insert_sql = f"INSERT INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})"
+        quoted_cols = ",".join([f'"{c}"' for c in cols])
+        insert_sql = f'INSERT INTO "{table_name}" ({quoted_cols}) VALUES ({placeholders})'
         for row in rows:
             values = [row.get(col) for col in cols]
             cursor.execute(insert_sql, values)
