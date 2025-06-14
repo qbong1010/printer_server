@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Dict, List
 import requests
@@ -22,6 +23,31 @@ class SupabaseCache:
             "Authorization": f"Bearer {self.api_key}" if self.api_key else "",
         }
         self.last_order_id = 0
+        self._load_last_order_id()
+
+    # ------------------------------------------------------------------
+    def _load_last_order_id(self) -> None:
+        """캐시 DB에서 마지막 주문 ID를 불러옵니다."""
+        if not self.db_path.exists():
+            return
+        with sqlite3.connect(self.db_path) as conn:
+            with suppress(sqlite3.Error):
+                row = conn.execute(
+                    "SELECT value FROM cache_meta WHERE key='last_order_id'"
+                ).fetchone()
+                if row and row[0] is not None:
+                    self.last_order_id = int(row[0])
+
+    def _save_last_order_id(self) -> None:
+        """마지막 주문 ID를 캐시 DB에 저장합니다."""
+        with suppress(sqlite3.Error):
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    "INSERT INTO cache_meta (key, value) VALUES ('last_order_id', ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    (str(self.last_order_id),),
+                )
+                conn.commit()
 
     # ------------------------------------------------------------------
     def setup_sqlite(self) -> None:
@@ -33,11 +59,8 @@ class SupabaseCache:
             s.strip() for s in sql.split(";") if s.strip() and not s.strip().startswith("--")
         ]
         for stmt in statements:
-            try:
+            with suppress(sqlite3.Error):
                 conn.execute(stmt + ";")
-            except sqlite3.Error:
-                # 스키마 오류는 무시 (컨텍스트용 스키마이므로)
-                pass
         conn.commit()
         conn.close()
 
@@ -81,6 +104,7 @@ class SupabaseCache:
             current_id = data[0].get("order_id", 0)
             if current_id != self.last_order_id:
                 self.last_order_id = current_id
+                self._save_last_order_id()
                 return True
         return False
 
