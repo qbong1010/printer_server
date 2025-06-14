@@ -4,10 +4,12 @@ from contextlib import suppress
 from pathlib import Path
 from typing import Any, Dict, List
 import requests
+import logging
 
 SCHEMA_PATH = Path(__file__).parent / "supabase_schema.sql"
 DB_PATH = Path("cache.db")
 
+logger = logging.getLogger(__name__)
 # Supabase 테이블 이름을 명시적으로 나열하여 허용 리스트를 구성합니다.
 VALID_TABLES = {
     "company",
@@ -86,10 +88,17 @@ class SupabaseCache:
         if table_name not in VALID_TABLES:
             raise ValueError(f"Invalid table name: {table_name}")
         params = {"select": "*"}
-        resp = requests.get(
-            f"{self.base_url}/rest/v1/{table_name}", headers=self.headers, params=params
-        )
-        resp.raise_for_status()
+        try:
+            resp = requests.get(
+                f"{self.base_url}/rest/v1/{table_name}",
+                headers=self.headers,
+                params=params,
+                timeout=10,
+            )
+            resp.raise_for_status()
+        except requests.Timeout:
+            logger.error("Timeout while fetching table '%s'", table_name)
+            return
         rows = resp.json()
         if not rows:
             return
@@ -112,10 +121,17 @@ class SupabaseCache:
         if not self.base_url:
             return False
         params = {"select": "order_id", "order": "order_id.desc", "limit": "1"}
-        resp = requests.get(
-            f"{self.base_url}/rest/v1/order", headers=self.headers, params=params
-        )
-        resp.raise_for_status()
+        try:
+            resp = requests.get(
+                f"{self.base_url}/rest/v1/order",
+                headers=self.headers,
+                params=params,
+                timeout=10,
+            )
+            resp.raise_for_status()
+        except requests.Timeout:
+            logger.error("Timeout while polling for new orders")
+            return False
         data = resp.json()
         if data:
             current_id = data[0].get("order_id", 0)
