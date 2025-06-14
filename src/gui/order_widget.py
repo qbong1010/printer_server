@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import Qt, Slot, QTimer
+import logging
 
 from ..database.cache import SupabaseCache
 
@@ -187,9 +188,11 @@ class OrderWidget(QWidget):
         """새 주문을 확인하고 필요한 경우 목록을 갱신"""
         try:
             if self.cache.poll_new_orders():
+                self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
                 self.refresh_orders()
             else:
                 self.notice_label.setText("")
-        except Exception:
+        except Exception as e:
+            logging.error(f"Error while polling new orders: {e}")
+            self.notice_label.setText("주문 확인 중 오류가 발생했습니다.")
             pass
-
