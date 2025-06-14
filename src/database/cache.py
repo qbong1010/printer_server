@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 import requests
 import logging
 
-SCHEMA_PATH = Path(__file__).parent / "supabase_schema.sql"
+SCHEMA_PATH = Path(__file__).parent / "sqlite_schema.sql"
 DB_PATH = Path("cache.db")
 
 logger = logging.getLogger(__name__)
@@ -27,13 +27,10 @@ VALID_TABLES = {
 class SupabaseCache:
     """SQLite에 Supabase 테이블을 캐싱하고 최신 주문을 감지합니다."""
 
-    def __init__(self, db_path: Path = DB_PATH):
+    def __init__(self, db_path: Path = DB_PATH, supabase_config: dict = None):
         self.db_path = Path(db_path)
-        project_id = os.getenv("SUPABASE_PROJECT_ID")
-        self.base_url = os.getenv("SUPABASE_URL") or (
-            f"https://{project_id}.supabase.co" if project_id else None
-        )
-        self.api_key = os.getenv("SUPABASE_API_KEY")
+        self.base_url = supabase_config.get('url') if supabase_config else None
+        self.api_key = supabase_config.get('api_key') if supabase_config else None
         self.headers = {
             "apikey": self.api_key or "",
             "Authorization": f"Bearer {self.api_key}" if self.api_key else "",
@@ -68,17 +65,35 @@ class SupabaseCache:
     # ------------------------------------------------------------------
     def setup_sqlite(self) -> None:
         """로컬 SQLite 데이터베이스와 테이블을 초기화합니다."""
-        conn = sqlite3.connect(self.db_path)
-        with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-            sql = f.read()
-        statements = [
-            s.strip() for s in sql.split(";") if s.strip() and not s.strip().startswith("--")
-        ]
-        for stmt in statements:
-            with suppress(sqlite3.Error):
-                conn.execute(stmt + ";")
-        conn.commit()
-        conn.close()
+        try:
+            conn = sqlite3.connect(self.db_path)
+            with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+                sql = f.read()
+            
+            # SQL 문장을 개별적으로 분리
+            statements = [stmt.strip() for stmt in sql.split(';') if stmt.strip()]
+            
+            # 각 문장을 개별적으로 실행
+            for stmt in statements:
+                try:
+                    conn.execute(stmt)
+                    conn.commit()
+                except sqlite3.Error as e:
+                    logger.error(f"SQL 실행 오류: {e}\n문장: {stmt}")
+            
+            # cache_meta 테이블이 없으면 생성
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS cache_meta (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                )
+            """)
+            conn.commit()
+            
+        except Exception as e:
+            logger.error(f"데이터베이스 초기화 오류: {e}")
+        finally:
+            conn.close()
 
     # ------------------------------------------------------------------
     def fetch_and_store_table(self, table_name: str) -> None:

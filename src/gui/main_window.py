@@ -5,7 +5,7 @@ from .printer_widget import PrinterWidget
 from src.supabase_client import SupabaseClient
 
 class MainWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, supabase_config, db_config):
         super().__init__()
         self.setWindowTitle("주문 관리 시스템")
         self.setMinimumSize(800, 600)
@@ -21,7 +21,7 @@ class MainWindow(QMainWindow):
         tab_widget = QTabWidget()
         
         # 주문 관리 탭
-        self.order_widget = OrderWidget()
+        self.order_widget = OrderWidget(supabase_config, db_config)
         tab_widget.addTab(self.order_widget, "주문 관리")
         
         # 프린터 설정 탭

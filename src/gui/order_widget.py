@@ -17,10 +17,10 @@ from src.database.cache import SupabaseCache
 from ..printer.manager import PrinterManager
 
 class OrderWidget(QWidget):
-    def __init__(self):
+    def __init__(self, supabase_config, db_config):
         super().__init__()
         self.printer_manager = PrinterManager()
-        self.cache = SupabaseCache()
+        self.cache = SupabaseCache(db_path=db_config['path'], supabase_config=supabase_config)
         self.cache.setup_sqlite()
         self.setup_ui()
         self.orders = []

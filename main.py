@@ -17,31 +17,26 @@ def setup_logging():
     )
 
 def main():
-    # 로깅 설정
     setup_logging()
-    
-    # 환경 변수 로드
     load_dotenv()
     
-    # Supabase 연결 정보 출력
-    supabase_url = os.getenv('SUPABASE_URL')
-    project_id = os.getenv('SUPABASE_PROJECT_ID')
-    if not supabase_url and project_id:
-        supabase_url = f"https://{project_id}.supabase.co"
-    if not supabase_url:
-        logging.critical("Supabase URL is not configured. Check .env")
-        sys.exit(1)
-    logging.info(f"Supabase URL: {supabase_url}")
+    # Supabase 설정을 중앙에서 관리
+    supabase_config = {
+        'url': os.getenv('SUPABASE_URL'),
+        'project_id': os.getenv('SUPABASE_PROJECT_ID'),
+        'api_key': os.getenv('SUPABASE_API_KEY')
+    }
     
-    # 데이터베이스 파일 위치 출력
-    db_path = os.path.abspath("orders.db")
-    logging.info(f"데이터베이스 파일 위치: {db_path}")
+    # 데이터베이스 설정을 중앙에서 관리
+    db_config = {
+        'path': os.path.abspath("cache.db")  # orders.db를 cache.db로 통일
+    }
     
-    # QApplication 인스턴스 생성
+    logging.info(f"Supabase URL: {supabase_config['url']}")
+    logging.info(f"데이터베이스 파일 위치: {db_config['path']}")
+    
     app = QApplication(sys.argv)
-    
-    # 메인 윈도우 생성 및 표시
-    window = MainWindow()
+    window = MainWindow(supabase_config, db_config)  # 설정을 전달
     window.show()
     
     logging.info("프로그램이 성공적으로 시작되었습니다.")
