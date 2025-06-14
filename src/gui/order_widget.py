@@ -9,8 +9,10 @@ from PySide6.QtWidgets import (
     QMessageBox,
 )
 from PySide6.QtCore import Qt, Slot, QTimer
+import logging
 
-from ..database.cache import SupabaseCache
+# Use an absolute import so this module works when executed directly.
+from src.database.cache import SupabaseCache
 
 from ..printer.manager import PrinterManager
 
@@ -23,15 +25,13 @@ class OrderWidget(QWidget):
         self.setup_ui()
         self.orders = []
 
-        # 새로운 주문 감지용 타이머
-        self.poll_timer = QTimer()
-        self.poll_timer.timeout.connect(self.check_new_orders)
-        self.poll_timer.start(5000)  # 5초 간격
+        # 주문 갱신을 위한 단일 타이머
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.check_for_updates)
+        self.update_timer.start(5000)
 
-        # 주기적으로 주문 목록 갱신
-        self.refresh_timer = QTimer()
-        self.refresh_timer.timeout.connect(self.refresh_orders)
-        self.refresh_timer.start(5000)  # 5초마다 갱신
+        # 초기 주문 로드
+        self.refresh_orders()
         
     def setup_ui(self):
         # 메인 레이아웃
@@ -185,11 +185,15 @@ class OrderWidget(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "오류", f"동기화 중 오류가 발생했습니다: {str(e)}")
 
-    def check_new_orders(self):
-        """새로운 주문 발생 여부를 확인하고 알림"""
+    def check_for_updates(self):
+        """새 주문을 확인하고 필요한 경우 목록을 갱신"""
         try:
             if self.cache.poll_new_orders():
                 self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
-        except Exception:
+                self.refresh_orders()
+            else:
+                self.notice_label.setText("")
+        except Exception as e:
+            logging.error(f"Error while polling new orders: {e}")
+            self.notice_label.setText("주문 확인 중 오류가 발생했습니다.")
             pass
-

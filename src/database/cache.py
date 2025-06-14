@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from contextlib import suppress
 from pathlib import Path
 from typing import Any, Dict, List
 import requests
@@ -9,6 +10,19 @@ SCHEMA_PATH = Path(__file__).parent / "supabase_schema.sql"
 DB_PATH = Path("cache.db")
 
 logger = logging.getLogger(__name__)
+# Supabase 테이블 이름을 명시적으로 나열하여 허용 리스트를 구성합니다.
+VALID_TABLES = {
+    "company",
+    "menu_category",
+    "menu_item",
+    "menu_item_option_group",
+    "option_group",
+    "option_group_item",
+    "option_item",
+    "order",
+    "order_item",
+    "order_item_option",
+}
 
 class SupabaseCache:
     """SQLite에 Supabase 테이블을 캐싱하고 최신 주문을 감지합니다."""
@@ -25,6 +39,31 @@ class SupabaseCache:
             "Authorization": f"Bearer {self.api_key}" if self.api_key else "",
         }
         self.last_order_id = 0
+        self._load_last_order_id()
+
+    # ------------------------------------------------------------------
+    def _load_last_order_id(self) -> None:
+        """캐시 DB에서 마지막 주문 ID를 불러옵니다."""
+        if not self.db_path.exists():
+            return
+        with sqlite3.connect(self.db_path) as conn:
+            with suppress(sqlite3.Error):
+                row = conn.execute(
+                    "SELECT value FROM cache_meta WHERE key='last_order_id'"
+                ).fetchone()
+                if row and row[0] is not None:
+                    self.last_order_id = int(row[0])
+
+    def _save_last_order_id(self) -> None:
+        """마지막 주문 ID를 캐시 DB에 저장합니다."""
+        with suppress(sqlite3.Error):
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    "INSERT INTO cache_meta (key, value) VALUES ('last_order_id', ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    (str(self.last_order_id),),
+                )
+                conn.commit()
 
     # ------------------------------------------------------------------
     def setup_sqlite(self) -> None:
@@ -36,11 +75,8 @@ class SupabaseCache:
             s.strip() for s in sql.split(";") if s.strip() and not s.strip().startswith("--")
         ]
         for stmt in statements:
-            try:
+            with suppress(sqlite3.Error):
                 conn.execute(stmt + ";")
-            except sqlite3.Error:
-                # 스키마 오류는 무시 (컨텍스트용 스키마이므로)
-                pass
         conn.commit()
         conn.close()
 
@@ -49,6 +85,8 @@ class SupabaseCache:
         """Supabase에서 테이블을 가져와 SQLite에 저장합니다."""
         if not self.base_url:
             return
+        if table_name not in VALID_TABLES:
+            raise ValueError(f"Invalid table name: {table_name}")
         params = {"select": "*"}
         try:
             resp = requests.get(
@@ -66,10 +104,11 @@ class SupabaseCache:
             return
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        cursor.execute(f"DELETE FROM {table_name}")
+        cursor.execute(f'DELETE FROM "{table_name}"')
         cols = list(rows[0].keys())
         placeholders = ",".join(["?"] * len(cols))
-        insert_sql = f"INSERT INTO {table_name} ({','.join(cols)}) VALUES ({placeholders})"
+        quoted_cols = ",".join([f'"{c}"' for c in cols])
+        insert_sql = f'INSERT INTO "{table_name}" ({quoted_cols}) VALUES ({placeholders})'
         for row in rows:
             values = [row.get(col) for col in cols]
             cursor.execute(insert_sql, values)
@@ -98,6 +137,7 @@ class SupabaseCache:
             current_id = data[0].get("order_id", 0)
             if current_id != self.last_order_id:
                 self.last_order_id = current_id
+                self._save_last_order_id()
                 return True
         return False
 

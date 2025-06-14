@@ -80,3 +80,8 @@ CREATE TABLE public.order_item_option (
   CONSTRAINT order_item_option_order_item_id_fkey FOREIGN KEY (order_item_id) REFERENCES public.order_item(order_item_id),
   CONSTRAINT order_item_option_option_item_id_fkey FOREIGN KEY (option_item_id) REFERENCES public.option_item(option_item_id)
 );
+
+CREATE TABLE IF NOT EXISTS cache_meta (
+  key text PRIMARY KEY,
+  value text
+);
