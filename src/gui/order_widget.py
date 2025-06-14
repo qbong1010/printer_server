@@ -10,15 +10,24 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Slot, QTimer
 
+from ..database.cache import SupabaseCache
+
 from ..printer.manager import PrinterManager
 
 class OrderWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.printer_manager = PrinterManager()
+        self.cache = SupabaseCache()
+        self.cache.setup_sqlite()
         self.setup_ui()
         self.orders = []
-        
+
+        # 새로운 주문 감지용 타이머
+        self.poll_timer = QTimer()
+        self.poll_timer.timeout.connect(self.check_new_orders)
+        self.poll_timer.start(5000)  # 5초 간격
+
         # 주기적으로 주문 목록 갱신
         self.refresh_timer = QTimer()
         self.refresh_timer.timeout.connect(self.refresh_orders)
@@ -37,7 +46,11 @@ class OrderWidget(QWidget):
         refresh_btn = QPushButton("새로고침")
         refresh_btn.clicked.connect(self.refresh_orders)
         top_layout.addWidget(refresh_btn)
-        
+
+        sync_btn = QPushButton("데이터 동기화")
+        sync_btn.clicked.connect(self.sync_static_tables)
+        top_layout.addWidget(sync_btn)
+
         print_btn = QPushButton("영수증 출력")
         print_btn.clicked.connect(self.print_receipt)
         top_layout.addWidget(print_btn, alignment=Qt.AlignRight)
@@ -52,6 +65,10 @@ class OrderWidget(QWidget):
         ])
         self.order_table.horizontalHeader().setStretchLastSection(True)
         layout.addWidget(self.order_table)
+
+        # 알림 레이블
+        self.notice_label = QLabel("")
+        layout.addWidget(self.notice_label)
         
         # 스타일 설정
         self.setStyleSheet("""
@@ -78,18 +95,23 @@ class OrderWidget(QWidget):
     def refresh_orders(self):
         """주문 목록을 새로고침합니다."""
         try:
-            from ..supabase_client import SupabaseClient
-            client = SupabaseClient()
-            orders = client.get_orders()
-            
+            # 주문 관련 테이블 동기화
+            for table in ["order", "order_item", "order_item_option"]:
+                self.cache.fetch_and_store_table(table)
+
+            orders = self.cache.get_recent_orders()
+
             # 테이블 초기화
             self.order_table.setRowCount(0)
             self.orders = []
-            
+
             # 새로운 주문 데이터 추가
             for order in orders:
-                self.add_order(order)
-                
+                detail = self.cache.join_order_detail(order["order_id"])
+                self.add_order(detail)
+
+            self.notice_label.setText("")
+
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 목록 갱신 중 오류가 발생했습니다: {str(e)}")
     
@@ -143,3 +165,31 @@ class OrderWidget(QWidget):
             self.orders.append(order_data)
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 추가 중 오류가 발생했습니다: {str(e)}")
+
+    @Slot()
+    def sync_static_tables(self):
+        """고정 테이블을 수동 동기화합니다."""
+        tables = [
+            "company",
+            "menu_category",
+            "menu_item",
+            "menu_item_option_group",
+            "option_group",
+            "option_group_item",
+            "option_item",
+        ]
+        try:
+            for table in tables:
+                self.cache.fetch_and_store_table(table)
+            QMessageBox.information(self, "동기화", "고정 데이터 동기화가 완료되었습니다.")
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"동기화 중 오류가 발생했습니다: {str(e)}")
+
+    def check_new_orders(self):
+        """새로운 주문 발생 여부를 확인하고 알림"""
+        try:
+            if self.cache.poll_new_orders():
+                self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
+        except Exception:
+            pass
+
