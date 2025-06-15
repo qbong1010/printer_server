@@ -1,11 +1,16 @@
 import os
+import logging
+from typing import Any, Dict, List, Optional
+
 import requests
 from PySide6.QtCore import QObject, Signal
+
+logger = logging.getLogger(__name__)
 
 class SupabaseClient(QObject):
     """Supabase 데이터베이스와 연동하여 주문 데이터를 가져옵니다."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         project_id = os.getenv("SUPABASE_PROJECT_ID")
         self.base_url = os.getenv("SUPABASE_URL") or f"https://{project_id}.supabase.co"
@@ -15,7 +20,7 @@ class SupabaseClient(QObject):
             "Authorization": f"Bearer {self.api_key}",
         }
 
-    def get_orders(self, limit=10):
+    def get_orders(self, limit: int = 10) -> List[Dict[str, Any]]:
         """최근 주문 목록을 가져옵니다."""
         try:
             # 주문 기본 정보 조회
@@ -93,16 +98,16 @@ class SupabaseClient(QObject):
                     
                     formatted_orders.append(formatted_order)
                 except Exception as e:
-                    print(f"주문 데이터 변환 중 오류: {e}")
+                    logger.exception("주문 데이터 변환 중 오류: %s", e)
                     continue
             
             return formatted_orders
             
         except Exception as e:
-            print(f"주문 데이터 조회 오류: {e}")
+            logger.exception("주문 데이터 조회 오류: %s", e)
             return []
 
-    def get_order_by_id(self, order_id):
+    def get_order_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
         """특정 주문 ID의 상세 정보를 가져옵니다."""
         try:
             params = {
@@ -114,5 +119,5 @@ class SupabaseClient(QObject):
             data = resp.json()
             return data[0] if data else None
         except Exception as e:
-            print(f"주문 상세 조회 오류: {e}")
+            logger.exception("주문 상세 조회 오류: %s", e)
             return None

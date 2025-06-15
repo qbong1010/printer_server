@@ -1,9 +1,13 @@
 import sqlite3
 import json
+import logging
 from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 class OrderDatabase:
-    def __init__(self, db_path="orders.db"):
+    def __init__(self, db_path: str = "orders.db") -> None:
         self.db_path = db_path
         self._create_tables()
     
@@ -26,7 +30,7 @@ class OrderDatabase:
             
             conn.commit()
     
-    def add_order(self, order_data):
+    def add_order(self, order_data: Dict[str, Any]) -> bool:
         """새로운 주문을 데이터베이스에 추가"""
         try:
             # 총액 계산
@@ -57,13 +61,13 @@ class OrderDatabase:
                 conn.commit()
             return True
         except sqlite3.IntegrityError:
-            print(f"주문 ID {order_data['order_id']}가 이미 존재합니다.")
+            logger.warning("주문 ID %s 가 이미 존재합니다.", order_data['order_id'])
             return False
         except Exception as e:
-            print(f"주문 저장 중 오류 발생: {e}")
+            logger.exception("주문 저장 중 오류 발생: %s", e)
             return False
     
-    def get_order(self, order_id):
+    def get_order(self, order_id: str) -> Optional[Dict[str, Any]]:
         """주문 ID로 주문 정보 조회"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
@@ -78,7 +82,7 @@ class OrderDatabase:
                 return json.loads(result[0])
             return None
     
-    def get_recent_orders(self, limit=50):
+    def get_recent_orders(self, limit: int = 50) -> List[Dict[str, Any]]:
         """최근 주문 목록 조회"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()

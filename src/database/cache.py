@@ -2,12 +2,12 @@ import os
 import sqlite3
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 import requests
 import logging
 
 SCHEMA_PATH = Path(__file__).parent / "sqlite_schema.sql"
-DB_PATH = Path("cache.db")
+DB_PATH = Path(os.getenv("CACHE_DB_PATH", "cache.db"))
 
 logger = logging.getLogger(__name__)
 # Supabase 테이블 이름을 명시적으로 나열하여 허용 리스트를 구성합니다.
@@ -27,7 +27,7 @@ VALID_TABLES = {
 class SupabaseCache:
     """SQLite에 Supabase 테이블을 캐싱하고 최신 주문을 감지합니다."""
 
-    def __init__(self, db_path: Path = DB_PATH, supabase_config: dict = None):
+    def __init__(self, db_path: Path = DB_PATH, supabase_config: Optional[Dict[str, str]] = None) -> None:
         self.db_path = Path(db_path)
         self.base_url = supabase_config.get('url') if supabase_config else None
         self.api_key = supabase_config.get('api_key') if supabase_config else None
