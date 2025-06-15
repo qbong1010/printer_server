@@ -1,18 +1,21 @@
 import sys
 import os
+import logging
+from pathlib import Path
+
 from dotenv import load_dotenv
 from PySide6.QtWidgets import QApplication
 from src.gui.main_window import MainWindow
-import logging
 
 def setup_logging():
     # 로깅 설정
+    log_path = Path(os.getenv("APP_LOG_PATH", "app.log"))
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(message)s',
         handlers=[
             logging.StreamHandler(),
-            logging.FileHandler('app.log', encoding='utf-8')
+            logging.FileHandler(log_path, encoding='utf-8')
         ]
     )
 
@@ -28,8 +31,9 @@ def main():
     }
     
     # 데이터베이스 설정을 중앙에서 관리
+    db_path = Path(os.getenv("CACHE_DB_PATH", "cache.db")).resolve()
     db_config = {
-        'path': os.path.abspath("cache.db")  # orders.db를 cache.db로 통일
+        'path': str(db_path)
     }
     
     logging.info(f"Supabase URL: {supabase_config['url']}")

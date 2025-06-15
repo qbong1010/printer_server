@@ -8,13 +8,38 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, Slot, QTimer
+from PySide6.QtCore import Qt, Slot, QThread, Signal
 import logging
 
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
 
 from ..printer.manager import PrinterManager
+
+
+class PollingThread(QThread):
+    new_order = Signal()
+    error = Signal(str)
+
+    def __init__(self, cache: SupabaseCache, interval: int = 5) -> None:
+        super().__init__()
+        self.cache = cache
+        self.interval = interval
+        self._running = True
+
+    def run(self) -> None:
+        while self._running:
+            try:
+                if self.cache.poll_new_orders():
+                    self.new_order.emit()
+            except Exception as e:
+                logging.error("Error while polling new orders: %s", e)
+                self.error.emit(str(e))
+            self.sleep(self.interval)
+
+    def stop(self) -> None:
+        self._running = False
+
 
 class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
@@ -25,13 +50,18 @@ class OrderWidget(QWidget):
         self.setup_ui()
         self.orders = []
 
-        # 주문 갱신을 위한 단일 타이머
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.check_for_updates)
-        self.update_timer.start(5000)
+        # 주문 갱신을 위한 백그라운드 스레드
+        self.poll_thread = PollingThread(self.cache)
+        self.poll_thread.new_order.connect(self.on_new_order)
+        self.poll_thread.start()
 
         # 초기 주문 로드
         self.refresh_orders()
+
+    def closeEvent(self, event) -> None:
+        self.poll_thread.stop()
+        self.poll_thread.wait()
+        super().closeEvent(event)
         
     def setup_ui(self):
         # 메인 레이아웃
@@ -185,15 +215,7 @@ class OrderWidget(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "오류", f"동기화 중 오류가 발생했습니다: {str(e)}")
 
-    def check_for_updates(self):
-        """새 주문을 확인하고 필요한 경우 목록을 갱신"""
-        try:
-            if self.cache.poll_new_orders():
-                self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
-                self.refresh_orders()
-            else:
-                self.notice_label.setText("")
-        except Exception as e:
-            logging.error(f"Error while polling new orders: {e}")
-            self.notice_label.setText("주문 확인 중 오류가 발생했습니다.")
-            pass
+    def on_new_order(self) -> None:
+        """스레드에서 새 주문 발생 시 호출됩니다."""
+        self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
+        self.refresh_orders()
