@@ -8,38 +8,13 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
 )
-from PySide6.QtCore import Qt, Slot, QThread, Signal
+from PySide6.QtCore import Qt, Slot, QTimer
 import logging
 
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
 
 from ..printer.manager import PrinterManager
-
-
-class PollingThread(QThread):
-    new_order = Signal()
-    error = Signal(str)
-
-    def __init__(self, cache: SupabaseCache, interval: int = 5) -> None:
-        super().__init__()
-        self.cache = cache
-        self.interval = interval
-        self._running = True
-
-    def run(self) -> None:
-        while self._running:
-            try:
-                if self.cache.poll_new_orders():
-                    self.new_order.emit()
-            except Exception as e:
-                logging.error("Error while polling new orders: %s", e)
-                self.error.emit(str(e))
-            self.sleep(self.interval)
-
-    def stop(self) -> None:
-        self._running = False
-
 
 class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
@@ -50,18 +25,13 @@ class OrderWidget(QWidget):
         self.setup_ui()
         self.orders = []
 
-        # 주문 갱신을 위한 백그라운드 스레드
-        self.poll_thread = PollingThread(self.cache)
-        self.poll_thread.new_order.connect(self.on_new_order)
-        self.poll_thread.start()
+        # 주문 갱신을 위한 단일 타이머
+        self.update_timer = QTimer()
+        self.update_timer.timeout.connect(self.check_for_updates)
+        self.update_timer.start(5000)
 
         # 초기 주문 로드
         self.refresh_orders()
-
-    def closeEvent(self, event) -> None:
-        self.poll_thread.stop()
-        self.poll_thread.wait()
-        super().closeEvent(event)
         
     def setup_ui(self):
         # 메인 레이아웃
@@ -69,7 +39,7 @@ class OrderWidget(QWidget):
         
         # 상단 레이아웃 (제목 + 버튼)
         top_layout = QHBoxLayout()
-        title_label = QLabel("실시간 주문 현황")
+        title_label = QLabel("식권 주문 현황")
         title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         top_layout.addWidget(title_label)
         
@@ -149,14 +119,63 @@ class OrderWidget(QWidget):
     def print_receipt(self):
         # 선택된 주문의 영수증 출력
         current_row = self.order_table.currentRow()
-        if current_row >= 0:
-            order_item = self.order_table.item(current_row, 0)
-            order_data = order_item.data(Qt.UserRole)
-            if order_data:
-                success = self.printer_manager.print_receipt(order_data)
-                if not success:
-                    QMessageBox.warning(self, "출력 실패", "영수증 출력 중 오류가 발생했습니다.")
-    
+        if current_row < 0:
+            QMessageBox.warning(self, "경고", "출력할 주문을 선택해주세요.")
+            return
+            
+        order_item = self.order_table.item(current_row, 0)
+        if not order_item:
+            QMessageBox.warning(self, "경고", "선택한 주문 데이터를 찾을 수 없습니다.")
+            return
+            
+        order_data = order_item.data(Qt.UserRole)
+        if not order_data:
+            QMessageBox.warning(self, "경고", "선택한 주문 데이터가 유효하지 않습니다.")
+            return
+            
+        try:
+            # 주문 데이터 형식 변환
+            formatted_order = {
+                "order_id": str(order_data.get("order_id", "N/A")),
+                "company_name": order_data.get("company_name", "N/A"),
+                "created_at": order_data.get("created_at", ""),
+                "is_dine_in": order_data.get("is_dine_in", True),
+                "items": []
+            }
+            
+            # 주문 항목 처리
+            for item in order_data.get("items", []):
+                formatted_item = {
+                    "name": item.get("name", "N/A"),
+                    "quantity": item.get("quantity", 1),
+                    "price": item.get("price", 0),
+                    "options": item.get("options", [])
+                }
+                formatted_order["items"].append(formatted_item)
+            
+            # 프린터 출력 시도
+            success = self.printer_manager.print_receipt(formatted_order)
+            if success:
+                # 실제로 출력이 되었는지 사용자에게 확인
+                reply = QMessageBox.question(
+                    self,
+                    "출력 확인",
+                    "영수증이 정상적으로 출력되었습니까?",
+                    QMessageBox.Yes | QMessageBox.No,
+                    QMessageBox.Yes
+                )
+                
+                if reply == QMessageBox.Yes:
+                    # 출력 상태 업데이트
+                    self.order_table.setItem(current_row, 5, QTableWidgetItem("출력완료"))
+                    QMessageBox.information(self, "성공", "영수증이 성공적으로 출력되었습니다.")
+                else:
+                    QMessageBox.warning(self, "출력 실패", "프린터 출력을 확인해주세요.")
+            else:
+                QMessageBox.warning(self, "출력 실패", "영수증 출력 중 오류가 발생했습니다.")
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"영수증 출력 중 예외가 발생했습니다: {str(e)}")
+
     def add_order(self, order_data):
         """새로운 주문을 테이블에 추가"""
         try:
@@ -215,7 +234,15 @@ class OrderWidget(QWidget):
         except Exception as e:
             QMessageBox.warning(self, "오류", f"동기화 중 오류가 발생했습니다: {str(e)}")
 
-    def on_new_order(self) -> None:
-        """스레드에서 새 주문 발생 시 호출됩니다."""
-        self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
-        self.refresh_orders()
+    def check_for_updates(self):
+        """새 주문을 확인하고 필요한 경우 목록을 갱신"""
+        try:
+            if self.cache.poll_new_orders():
+                self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
+                self.refresh_orders()
+            else:
+                self.notice_label.setText("")
+        except Exception as e:
+            logging.error(f"Error while polling new orders: {e}")
+            self.notice_label.setText("주문 확인 중 오류가 발생했습니다.")
+            pass
