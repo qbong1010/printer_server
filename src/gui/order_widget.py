@@ -11,6 +11,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Slot, QTimer
 import logging
+import sqlite3
+import requests
 
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
@@ -202,7 +204,29 @@ class OrderWidget(QWidget):
                 )
                 
                 if reply == QMessageBox.Yes:
-                    # 출력 상태 업데이트
+                    # 로컬 DB에 출력 상태 업데이트
+                    with sqlite3.connect(self.cache.db_path) as conn:
+                        cursor = conn.cursor()
+                        cursor.execute(
+                            'UPDATE "order" SET is_printed = 1 WHERE order_id = ?',
+                            (order_data["order_id"],)
+                        )
+                        conn.commit()
+                    
+                    # Supabase에도 출력 상태 업데이트
+                    if self.cache.base_url:
+                        try:
+                            response = requests.patch(
+                                f"{self.cache.base_url}/rest/v1/order",
+                                headers=self.cache.headers,
+                                json={"is_printed": True},
+                                params={"order_id": f"eq.{order_data['order_id']}"}
+                            )
+                            response.raise_for_status()
+                        except Exception as e:
+                            logging.error(f"Supabase 업데이트 실패: {e}")
+                    
+                    # UI 업데이트
                     self.order_table.setItem(current_row, 5, QTableWidgetItem("출력완료"))
                     QMessageBox.information(self, "성공", "영수증이 성공적으로 출력되었습니다.")
                 else:
