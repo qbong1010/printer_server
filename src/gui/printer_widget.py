@@ -49,7 +49,7 @@ class PrinterWidget(QWidget):
         self.type_group = QButtonGroup()
         self.default_radio = QRadioButton("일반 프린터")
         self.escpos_radio = QRadioButton("ESC/POS 프린터")
-        self.default_radio.setChecked(True)
+        self.escpos_radio.setChecked(True)
         
         self.type_group.addButton(self.default_radio)
         self.type_group.addButton(self.escpos_radio)

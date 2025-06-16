@@ -99,6 +99,31 @@ def _parse_usb_address(address: str) -> tuple[int, int, int]:
         
     return vendor_id, product_id, interface
 
+def _find_bulk_out_endpoint(vendor_id: int, product_id: int, interface: int = 0) -> Optional[int]:
+    """지정된 VID/PID 장치에서 Bulk-OUT 엔드포인트 주소를 찾아 반환한다.
+    실패 시 None 반환."""
+    try:
+        device = usb.core.find(idVendor=vendor_id, idProduct=product_id)
+        if device is None:
+            logger.warning("Target USB device not found while searching for Bulk-OUT endpoint")
+            return None
+
+        cfg = device.get_active_configuration()
+        try:
+            intf = cfg[(interface, 0)]  # 기본적으로 alternate setting 0 가정
+        except KeyError:
+            logger.warning(f"Interface {(interface, 0)} not found on device while searching for endpoint")
+            return None
+
+        for ep in intf:
+            if (usb.util.endpoint_type(ep.bmAttributes) == usb.util.ENDPOINT_TYPE_BULK and
+                    usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT):
+                return ep.bEndpointAddress
+    except Exception as e:
+        logger.warning(f"Failed to detect Bulk-OUT endpoint: {e}")
+
+    return None
+
 def _get_printer():
     """환경변수에 지정된 설정을 바탕으로 프린터 인스턴스를 반환한다."""
     conn_type = os.getenv("POS_PRINTER_TYPE", "usb")
@@ -133,11 +158,21 @@ def _get_printer():
                 for dev in devices:
                     logger.info(f"VID:{dev.idVendor:04x} PID:{dev.idProduct:04x}")
 
+            # Bulk-OUT 엔드포인트 자동 탐색
+            out_ep = _find_bulk_out_endpoint(vendor_id, product_id, interface)
+            if out_ep is not None:
+                logger.info(f"Detected Bulk-OUT endpoint: 0x{out_ep:02X}")
+            else:
+                logger.warning("Bulk-OUT endpoint could not be detected automatically; letting escpos determine it")
+
             last_error = None
             for backend in BACKENDS:
                 try:
                     logger.info(f"Trying backend: {backend}")
-                    printer = Usb(vendor_id, product_id, interface, backend=backend)
+                    if out_ep is not None:
+                        printer = Usb(vendor_id, product_id, interface, out_ep=out_ep, backend=backend)
+                    else:
+                        printer = Usb(vendor_id, product_id, interface, backend=backend)
                     logger.info(f"Successfully connected using {backend} backend")
                     return printer
                 except Exception as e:
@@ -155,70 +190,109 @@ def _get_printer():
 
 def _format_receipt_content(p: Any, order: Dict[str, Any]) -> None:
     """영수증 내용을 포맷팅하여 출력"""
-    # 회사명 출력
-    p.set(align="center", bold=True, width=2, height=2)
-    p.text(f"{order.get('company_name', '')}\n")
-    p.text(f"픽업번호 : {order['pickup_number']}\n")
-
-    p.set(align="center")
-    p.text("-" * 32 + "\n")
-
-    p.set(align="left", bold=False)
-    p.text(f"유형 : {order['order_type']}\n")
-    p.text(f"주문접수시간 : {order['timestamp']}\n")
-
-    p.text("-" * 32 + "\n")
-    p.text("메뉴           수량   금액\n")
-
-    total = 0
-    for item in order["items"]:
-        name = item["name"]
-        qty = item["quantity"]
-        price = item["price"]
-        total += qty * price
-
-        p.text(f"{name:<14} {qty:<3} {price:>6,}\n")
-        if "note" in item:
-            p.text(f"{item['note']}\n")
-
-    p.text("-" * 32 + "\n")
-    p.set(align="right", bold=True)
-    p.text(f"합계      {total:,.0f}\n")
-    p.set(align="left", bold=False)
-    p.text("-" * 32 + "\n")
-
-    if 'disposable_needed' in order:
-        p.text(f"일회용수저필요 : {order['disposable_needed']}\n")
-    
-    p.text("\n")
-    p.text("----------------------------\n")
-    p.text(f"총 합계: {total:,}원\n")
-    p.text("\n감사합니다!\n")
-    p.text("\n")
-    
-    return total
+    try:
+        def encode_text(text: str) -> bytes:
+            """텍스트를 CP949로 인코딩"""
+            try:
+                return text.encode('cp949')
+            except UnicodeEncodeError as e:
+                logger.error(f"CP949 인코딩 오류: {e}")
+                return text.encode('euc-kr', errors='replace')
+        
+        # 헤더
+        p.set(align="center", bold=True, width=2, height=2)
+        p.text(encode_text(f"{order.get('company_name', '')}\n"))
+        p.set(align="center", bold=True)
+        p.text(encode_text("*** 주문 영수증 ***\n\n"))
+        
+        # 주문 정보
+        p.set(align="left")
+        p.text(encode_text(f"주문번호: {order.get('order_id', '')}\n"))
+        p.text(encode_text(f"주문일시: {order.get('created_at', '')}\n"))
+        p.text(encode_text(f"주문유형: {'매장 식사' if order.get('is_dine_in', True) else '포장'}\n\n"))
+        
+        # 구분선
+        p.text(encode_text("-" * 32 + "\n"))
+        
+        # 주문 항목
+        p.set(align="left")
+        total = 0
+        for item in order["items"]:
+            name = item["name"]
+            qty = item["quantity"]
+            price = item["price"]
+            item_total = qty * price
+            total += item_total
+            
+            p.text(encode_text(f"{name}\n"))
+            # 옵션 출력
+            for opt in item.get("options", []):
+                p.text(encode_text(f"• {opt['name']}"))
+                if opt['price'] > 0:
+                    p.text(encode_text(f" (+{opt['price']:,}원)"))
+                p.text(encode_text("\n"))
+            
+            p.text(encode_text(f"수량: {qty}개 x {price:,}원 = {item_total:,}원\n\n"))
+        
+        # 구분선
+        p.text(encode_text("-" * 32 + "\n"))
+        
+        # 합계
+        p.set(align="left")
+        p.text(encode_text(f"소계: {total:,}원\n"))
+        tax = int(total * 0.1)
+        p.text(encode_text(f"부가세: {tax:,}원\n"))
+        p.set(bold=True)
+        p.text(encode_text(f"총 금액: {total:,}원\n\n"))
+        
+        # 푸터
+        p.set(align="center")
+        p.text(encode_text("감사합니다!\n"))
+        p.text(encode_text("맛있게 드세요~\n\n"))
+        
+        # 출력 시간
+        from datetime import datetime
+        current_time = datetime.now()
+        p.set(font='a', width=1, height=1)
+        p.text(encode_text(f"출력시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n"))
+        
+        # 커트
+        p.cut()
+        
+        return total
+        
+    except Exception as e:
+        logger.error(f"영수증 포맷팅 중 오류 발생: {str(e)}")
+        raise
 
 def print_receipt(order):
     """주문 정보를 받아 ESC/POS 프린터로 영수증을 출력한다."""
     try:
+        logger.info("프린터 연결 시도...")
         printer = _get_printer()
         p = printer
-
-        # 영수증 내용 출력
-        _format_receipt_content(p, order)
         
-        # 부분 커트만 실행 (전체 커트는 불필요)
+        logger.info("영수증 출력 시작...")
+        # 영수증 내용 출력
+        total = _format_receipt_content(p, order)
+        logger.info(f"영수증 출력 완료. 총액: {total:,}원")
+        
+        # 부분 커트만 실행
         p.cut(mode='partial')
+        logger.info("프린터 커트 완료")
+        
+        return True
         
     except Exception as e:
-        logger.error(f"Failed to print receipt: {str(e)}")
+        logger.error(f"프린터 출력 실패: {str(e)}")
         # ESC/POS 프린터 실패 시 윈도우 프린터로 폴백
         try:
+            logger.info("윈도우 프린터로 폴백 시도...")
             from .manager import PrinterManager
             printer_manager = PrinterManager()
             printer_manager.set_printer_type("default")
             return printer_manager.print_receipt(order)
         except Exception as fallback_error:
-            logger.error(f"Fallback to Windows printer also failed: {str(fallback_error)}")
+            logger.error(f"윈도우 프린터 폴백도 실패: {str(fallback_error)}")
             raise
 
