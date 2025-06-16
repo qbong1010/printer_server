@@ -60,6 +60,9 @@ CREATE TABLE IF NOT EXISTS "order" (
   total_price INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_printed INTEGER DEFAULT 0,
+  print_status TEXT DEFAULT '신규',
+  print_attempts INTEGER DEFAULT 0,
+  last_print_attempt TIMESTAMP,
   FOREIGN KEY (company_id) REFERENCES company(company_id)
 );
 

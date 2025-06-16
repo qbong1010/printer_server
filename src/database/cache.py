@@ -164,6 +164,7 @@ class SupabaseCache:
         cursor = conn.cursor()
         query = """
         SELECT o.order_id, o.is_dine_in, o.total_price, o.created_at,
+               o.print_status, o.print_attempts,
                c.company_name,
                oi.order_item_id, oi.quantity, oi.item_price,
                mi.menu_name,
@@ -187,6 +188,8 @@ class SupabaseCache:
             "is_dine_in": bool(rows[0]["is_dine_in"]),
             "total_price": rows[0]["total_price"],
             "created_at": rows[0]["created_at"],
+            "print_status": rows[0]["print_status"],
+            "print_attempts": rows[0]["print_attempts"],
             "items": [],
         }
         item_map: Dict[int, Dict[str, Any]] = {}
@@ -213,6 +216,7 @@ class SupabaseCache:
         cursor = conn.cursor()
         query = """
         SELECT o.order_id, o.company_id, o.is_dine_in, o.total_price, o.created_at,
+               o.print_status, o.print_attempts,
                c.company_name
         FROM "order" o
         JOIN company c ON c.company_id = o.company_id
@@ -238,3 +242,12 @@ class SupabaseCache:
             return [dict(row) for row in rows]
         finally:
             conn.close()
+
+    def update_print_info(self, order_id: int, status: str) -> None:
+        """주문의 출력 상태와 시각을 갱신합니다."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                'UPDATE "order" SET print_status=?, last_print_attempt=CURRENT_TIMESTAMP, print_attempts=print_attempts+1 WHERE order_id=?',
+                (status, order_id),
+            )
+            conn.commit()

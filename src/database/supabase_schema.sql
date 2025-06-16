@@ -59,6 +59,9 @@ CREATE TABLE public.order (
   total_price integer DEFAULT 0,
   created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   is_printed boolean DEFAULT false,
+  print_status text,
+  print_attempts integer,
+  last_print_attempt timestamp without time zone,
   CONSTRAINT order_pkey PRIMARY KEY (order_id),
   CONSTRAINT order_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.company(company_id)
 );

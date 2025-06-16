@@ -10,6 +10,9 @@ from PySide6.QtWidgets import (
     QProgressBar,
 )
 from PySide6.QtCore import Qt, Slot, QTimer
+from datetime import datetime
+
+from src.auto_print import OrderStatus, PrintSettings
 import logging
 import sqlite3
 import requests
@@ -23,6 +26,7 @@ class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
         super().__init__()
         self.printer_manager = PrinterManager()
+        self.print_settings = PrintSettings()
         self.cache = SupabaseCache(db_path=db_config['path'], supabase_config=supabase_config)
         self.cache.setup_sqlite()
         self.setup_ui()
@@ -269,7 +273,7 @@ class OrderWidget(QWidget):
             self.order_table.setItem(row_position, 4, QTableWidgetItem(total_price))
             
             # 상태
-            status = "출력완료" if order_data.get("is_printed", False) else "신규"
+            status = order_data.get("print_status", OrderStatus.NEW)
             self.order_table.setItem(row_position, 5, QTableWidgetItem(status))
             
             # 주문일시
@@ -283,8 +287,13 @@ class OrderWidget(QWidget):
                 except:
                     pass
             self.order_table.setItem(row_position, 6, QTableWidgetItem(created_at))
-            
+
             self.orders.append(order_data)
+            if (
+                self.print_settings.auto_print_enabled
+                and order_data.get("print_status", OrderStatus.NEW) == OrderStatus.NEW
+            ):
+                QTimer.singleShot(0, lambda od=order_data: self.process_auto_print(od))
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 추가 중 오류가 발생했습니다: {str(e)}")
 
@@ -339,3 +348,50 @@ class OrderWidget(QWidget):
             logging.error(f"Error while polling new orders: {e}")
             self.notice_label.setText("주문 확인 중 오류가 발생했습니다.")
             pass
+
+    # ------------------------------------------------------------------
+    def find_order_row(self, order_id: int) -> int:
+        for row in range(self.order_table.rowCount()):
+            item = self.order_table.item(row, 0)
+            if item and item.text() == str(order_id):
+                return row
+        return -1
+
+    def update_order_status(self, order_id: int, status: str) -> None:
+        self.cache.update_print_info(order_id, status)
+        row = self.find_order_row(order_id)
+        if row >= 0:
+            self.order_table.setItem(row, 5, QTableWidgetItem(status))
+
+    def check_printer_status(self) -> bool:
+        try:
+            return self.printer_manager.get_current_printer() in self.printer_manager.list_printers()
+        except Exception as e:
+            logging.error(f"Printer status check failed: {e}")
+            return False
+
+    def handle_print_retry(self, order_data: dict) -> None:
+        attempts = order_data.get("print_attempts", 0)
+        if attempts >= self.print_settings.print_retry_count:
+            logging.error("Max retries reached for order %s", order_data.get("order_id"))
+            self.update_order_status(order_data["order_id"], OrderStatus.PRINT_FAILED)
+            return
+        QTimer.singleShot(
+            self.print_settings.print_retry_interval * 1000,
+            lambda od=order_data: self.process_auto_print(od),
+        )
+
+    def process_auto_print(self, order_data: dict) -> None:
+        if self.print_settings.print_dine_in_only and not order_data.get("is_dine_in", True):
+            return
+        if not self.check_printer_status():
+            logging.error("Printer not available")
+            return
+        self.update_order_status(order_data["order_id"], OrderStatus.PRINTING)
+        success = self.printer_manager.print_receipt(order_data)
+        if success:
+            self.update_order_status(order_data["order_id"], OrderStatus.PRINTED)
+        else:
+            order_data["print_attempts"] = order_data.get("print_attempts", 0) + 1
+            self.update_order_status(order_data["order_id"], OrderStatus.PRINT_FAILED)
+            self.handle_print_retry(order_data)
