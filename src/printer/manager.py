@@ -3,10 +3,12 @@ import json
 import logging
 from pathlib import Path
 from typing import List
+from escpos.printer import File
 
 import win32print
 
 from .escpos_printer import print_receipt as escpos_print_receipt
+from .file_printer import print_receipt as file_print_receipt
 
 logger = logging.getLogger(__name__)
 
@@ -72,29 +74,11 @@ class PrinterManager:
                 return True
             except Exception as e:
                 logger.error("ESC/POS 프린터 오류: %s", e)
-                logger.info("윈도우 기본 프린터로 출력을 시도합니다...")
-                # ESC/POS 실패 시 윈도우 프린터로 폴백
-                self.printer_type = "default"
-                return self.print_receipt(order_data)
+                logger.info("파일 프린터로 출력을 시도합니다...")
+                # ESC/POS 실패 시 파일 프린터로 폴백
+                return file_print_receipt(order_data)
 
-        try:
-            handle = win32print.OpenPrinter(self.printer_name)
-            try:
-                content = self._generate_receipt_content(order_data)
-                job = win32print.StartDocPrinter(handle, 1, ("Receipt", None, "RAW"))
-                try:
-                    win32print.StartPagePrinter(handle)
-                    encoded_content = content.encode("cp949", errors="replace")
-                    win32print.WritePrinter(handle, encoded_content)
-                    win32print.EndPagePrinter(handle)
-                finally:
-                    win32print.EndDocPrinter(handle)
-            finally:
-                win32print.ClosePrinter(handle)
-            return True
-        except Exception as e:
-            logger.exception("프린터 오류: %s", e)
-            return False
+        return file_print_receipt(order_data)
 
     @staticmethod
     def list_printers() -> List[str]:

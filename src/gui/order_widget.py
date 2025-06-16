@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QLabel,
     QMessageBox,
+    QProgressBar,
 )
 from PySide6.QtCore import Qt, Slot, QTimer
 import logging
@@ -14,7 +15,7 @@ import logging
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
 
-from src.gui.printer.manager import PrinterManager
+from src.printer.manager import PrinterManager
 
 class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
@@ -43,27 +44,35 @@ class OrderWidget(QWidget):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         top_layout.addWidget(title_label)
         
-        refresh_btn = QPushButton("새로고침")
-        refresh_btn.clicked.connect(self.refresh_orders)
-        top_layout.addWidget(refresh_btn)
+        self.refresh_btn = QPushButton("새로고침")
+        self.refresh_btn.clicked.connect(self.refresh_orders)
+        top_layout.addWidget(self.refresh_btn)
 
-        sync_btn = QPushButton("데이터 동기화")
-        sync_btn.clicked.connect(self.sync_static_tables)
-        top_layout.addWidget(sync_btn)
+        self.sync_btn = QPushButton("데이터 동기화")
+        self.sync_btn.clicked.connect(self.sync_static_tables)
+        top_layout.addWidget(self.sync_btn)
 
-        print_btn = QPushButton("영수증 출력")
-        print_btn.clicked.connect(self.print_receipt)
-        top_layout.addWidget(print_btn, alignment=Qt.AlignRight)
+        self.print_btn = QPushButton("영수증 출력")
+        self.print_btn.clicked.connect(self.print_receipt)
+        top_layout.addWidget(self.print_btn, alignment=Qt.AlignRight)
         
         layout.addLayout(top_layout)
         
+        # 진행 상태 표시 바
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setVisible(False)
+        layout.addWidget(self.progress_bar)
+        
         # 주문 테이블
         self.order_table = QTableWidget()
-        self.order_table.setColumnCount(6)
+        self.order_table.setColumnCount(7)
         self.order_table.setHorizontalHeaderLabels([
-            "주문번호", "회사명", "메뉴", "매장식사", "총액", "상태"
+            "주문번호", "회사명", "메뉴", "매장식사", "총액", "상태", "주문일시"
         ])
         self.order_table.horizontalHeader().setStretchLastSection(True)
+        self.order_table.setEditTriggers(QTableWidget.NoEditTriggers)  # 편집 비활성화
+        self.order_table.setSelectionBehavior(QTableWidget.SelectRows)  # 행 전체 선택
+        self.order_table.setSelectionMode(QTableWidget.SingleSelection)  # 단일 행 선택만 허용
         layout.addWidget(self.order_table)
 
         # 알림 레이블
@@ -89,12 +98,37 @@ class OrderWidget(QWidget):
             QPushButton:hover {
                 background-color: #45a049;
             }
+            QPushButton:disabled {
+                background-color: #cccccc;
+            }
+            QProgressBar {
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                text-align: center;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+            }
         """)
+    
+    def set_loading_state(self, is_loading):
+        """로딩 상태에 따라 UI 요소들을 업데이트합니다."""
+        self.refresh_btn.setEnabled(not is_loading)
+        self.sync_btn.setEnabled(not is_loading)
+        self.print_btn.setEnabled(not is_loading)
+        self.progress_bar.setVisible(is_loading)
+        if is_loading:
+            self.progress_bar.setRange(0, 0)  # 무한 로딩 표시
+        else:
+            self.progress_bar.setRange(0, 100)
+            self.progress_bar.setValue(100)
     
     @Slot()
     def refresh_orders(self):
         """주문 목록을 새로고침합니다."""
         try:
+            self.set_loading_state(True)
+            
             # 주문 관련 테이블 동기화
             for table in ["order", "order_item", "order_item_option"]:
                 self.cache.fetch_and_store_table(table)
@@ -105,15 +139,17 @@ class OrderWidget(QWidget):
             self.order_table.setRowCount(0)
             self.orders = []
 
-            # 새로운 주문 데이터 추가
+            # 새로운 주문 데이터 추가 (최근 주문부터)
             for order in orders:
                 detail = self.cache.join_order_detail(order["order_id"])
                 self.add_order(detail)
 
-            self.notice_label.setText("")
+            self.notice_label.setText("주문 목록이 갱신되었습니다.")
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 목록 갱신 중 오류가 발생했습니다: {str(e)}")
+        finally:
+            self.set_loading_state(False)
     
     @Slot()
     def print_receipt(self):
@@ -183,7 +219,8 @@ class OrderWidget(QWidget):
             self.order_table.insertRow(row_position)
 
             # 주문 데이터 설정
-            item_id = QTableWidgetItem(order_data.get("order_id", "N/A"))
+            order_id = str(order_data.get("order_id", "N/A"))
+            item_id = QTableWidgetItem(order_id)
             item_id.setData(Qt.UserRole, order_data)
             self.order_table.setItem(row_position, 0, item_id)
             
@@ -211,6 +248,18 @@ class OrderWidget(QWidget):
             status = "출력완료" if order_data.get("is_printed", False) else "신규"
             self.order_table.setItem(row_position, 5, QTableWidgetItem(status))
             
+            # 주문일시
+            created_at = order_data.get("created_at", "")
+            if created_at:
+                # ISO 형식의 날짜를 한국 시간으로 변환하여 표시
+                from datetime import datetime
+                try:
+                    dt = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    created_at = dt.strftime("%Y-%m-%d %H:%M:%S")
+                except:
+                    pass
+            self.order_table.setItem(row_position, 6, QTableWidgetItem(created_at))
+            
             self.orders.append(order_data)
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 추가 중 오류가 발생했습니다: {str(e)}")
@@ -228,11 +277,31 @@ class OrderWidget(QWidget):
             "option_item",
         ]
         try:
+            self.set_loading_state(True)
+            
+            changes = []
             for table in tables:
+                old_data = self.cache.get_table_data(table)
                 self.cache.fetch_and_store_table(table)
-            QMessageBox.information(self, "동기화", "고정 데이터 동기화가 완료되었습니다.")
+                new_data = self.cache.get_table_data(table)
+                
+                # 변경사항 확인
+                if old_data != new_data:
+                    changes.append(f"{table}: {len(new_data) - len(old_data)}개 항목 변경")
+            
+            if changes:
+                QMessageBox.information(
+                    self, 
+                    "동기화 완료", 
+                    "고정 데이터 동기화가 완료되었습니다.\n\n변경사항:\n" + "\n".join(changes)
+                )
+            else:
+                QMessageBox.information(self, "동기화 완료", "모든 데이터가 최신 상태입니다.")
+                
         except Exception as e:
             QMessageBox.warning(self, "오류", f"동기화 중 오류가 발생했습니다: {str(e)}")
+        finally:
+            self.set_loading_state(False)
 
     def check_for_updates(self):
         """새 주문을 확인하고 필요한 경우 목록을 갱신"""

@@ -222,3 +222,19 @@ class SupabaseCache:
         rows = cursor.execute(query, (limit,)).fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    def get_table_data(self, table_name: str) -> List[Dict[str, Any]]:
+        """테이블의 모든 데이터를 가져옵니다."""
+        if table_name not in VALID_TABLES:
+            raise ValueError(f"Invalid table name: {table_name}")
+            
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute(f'SELECT * FROM "{table_name}"')
+            rows = cursor.fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()

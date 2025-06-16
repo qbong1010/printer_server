@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QButtonGroup
 )
 from PySide6.QtCore import Qt, Signal
-from ..printer.manager import PrinterManager
+from src.printer.manager import PrinterManager
 
 class PrinterWidget(QWidget):
     printer_changed = Signal(str)  # 프린터 변경 시그널
