@@ -14,7 +14,7 @@ import logging
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
 
-from ..printer.manager import PrinterManager
+from src.gui.printer.manager import PrinterManager
 
 class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
