@@ -24,6 +24,11 @@ from src.printer.manager import PrinterManager
 
 class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
+        """
+        Initializes the OrderWidget with Supabase and local database configurations.
+        
+        Sets up printer management, print settings, and data caching. Builds the user interface, initializes the order list, and starts a timer to periodically check for new orders. Loads initial orders on startup.
+        """
         super().__init__()
         self.printer_manager = PrinterManager()
         self.print_settings = PrintSettings()
@@ -241,7 +246,11 @@ class OrderWidget(QWidget):
             QMessageBox.warning(self, "오류", f"영수증 출력 중 예외가 발생했습니다: {str(e)}")
 
     def add_order(self, order_data):
-        """새로운 주문을 테이블에 추가"""
+        """
+        Adds a new order to the order table and triggers auto-printing if enabled.
+        
+        Displays order details such as order ID, company name, menu items, dine-in status, total price, print status, and order date in the table. If auto-printing is enabled and the order is new, schedules automatic printing for the order.
+        """
         try:
             row_position = self.order_table.rowCount()
             self.order_table.insertRow(row_position)
@@ -337,7 +346,11 @@ class OrderWidget(QWidget):
             self.set_loading_state(False)
 
     def check_for_updates(self):
-        """새 주문을 확인하고 필요한 경우 목록을 갱신"""
+        """
+        Checks for new orders and refreshes the order list if updates are found.
+        
+        If new orders are detected, updates the notice label and refreshes the displayed orders. Updates the notice label with an error message if an exception occurs.
+        """
         try:
             if self.cache.poll_new_orders():
                 self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
@@ -351,6 +364,15 @@ class OrderWidget(QWidget):
 
     # ------------------------------------------------------------------
     def find_order_row(self, order_id: int) -> int:
+        """
+        Finds the row index of the specified order ID in the order table.
+        
+        Args:
+            order_id: The unique identifier of the order to locate.
+        
+        Returns:
+            The row index if the order is found; otherwise, -1.
+        """
         for row in range(self.order_table.rowCount()):
             item = self.order_table.item(row, 0)
             if item and item.text() == str(order_id):
@@ -358,12 +380,25 @@ class OrderWidget(QWidget):
         return -1
 
     def update_order_status(self, order_id: int, status: str) -> None:
+        """
+        Updates the print status of an order in the cache and updates the status display in the order table.
+        
+        Args:
+            order_id: The unique identifier of the order to update.
+            status: The new print status to set for the order.
+        """
         self.cache.update_print_info(order_id, status)
         row = self.find_order_row(order_id)
         if row >= 0:
             self.order_table.setItem(row, 5, QTableWidgetItem(status))
 
     def check_printer_status(self) -> bool:
+        """
+        Checks if the currently selected printer is available.
+        
+        Returns:
+            True if the current printer is present in the list of available printers, False otherwise.
+        """
         try:
             return self.printer_manager.get_current_printer() in self.printer_manager.list_printers()
         except Exception as e:
@@ -371,6 +406,11 @@ class OrderWidget(QWidget):
             return False
 
     def handle_print_retry(self, order_data: dict) -> None:
+        """
+        Handles retry logic for failed print attempts on an order.
+        
+        If the maximum number of retries is reached, marks the order as print failed. Otherwise, schedules another print attempt after a configured delay.
+        """
         attempts = order_data.get("print_attempts", 0)
         if attempts >= self.print_settings.print_retry_count:
             logging.error("Max retries reached for order %s", order_data.get("order_id"))
@@ -382,6 +422,11 @@ class OrderWidget(QWidget):
         )
 
     def process_auto_print(self, order_data: dict) -> None:
+        """
+        Attempts to automatically print a receipt for the given order.
+        
+        If configured to print dine-in orders only, skips non-dine-in orders. Checks printer availability before proceeding. Updates the order's print status to printing, then attempts to print the receipt. On success, marks the order as printed; on failure, increments the print attempt count, marks the order as print failed, and initiates retry logic.
+        """
         if self.print_settings.print_dine_in_only and not order_data.get("is_dine_in", True):
             return
         if not self.check_printer_status():

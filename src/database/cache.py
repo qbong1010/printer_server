@@ -158,7 +158,12 @@ class SupabaseCache:
 
     # ------------------------------------------------------------------
     def join_order_detail(self, order_id: int) -> Dict[str, Any]:
-        """주문과 관련 테이블을 조인하여 상세 정보를 반환합니다."""
+        """
+        Retrieves detailed information for a specific order, including company, items, options, and print status.
+        
+        Returns:
+            A dictionary containing order metadata (such as company name, dine-in status, total price, creation time, print status, and print attempts) and a list of items with their options. Returns an empty dictionary if the order is not found.
+        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -211,6 +216,15 @@ class SupabaseCache:
 
     # ------------------------------------------------------------------
     def get_recent_orders(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        Retrieves a list of recent orders with company names and print status information.
+        
+        Args:
+            limit: The maximum number of recent orders to return.
+        
+        Returns:
+            A list of dictionaries, each containing order details, company name, print status, and print attempt count, ordered by creation date descending.
+        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -228,7 +242,18 @@ class SupabaseCache:
         return [dict(row) for row in rows]
 
     def get_table_data(self, table_name: str) -> List[Dict[str, Any]]:
-        """테이블의 모든 데이터를 가져옵니다."""
+        """
+        Returns all rows from the specified SQLite table as a list of dictionaries.
+        
+        Args:
+            table_name: Name of the table to retrieve data from. Must be in the set of valid tables.
+        
+        Returns:
+            A list of dictionaries, each representing a row from the specified table.
+        
+        Raises:
+            ValueError: If the table name is not in the set of valid tables.
+        """
         if table_name not in VALID_TABLES:
             raise ValueError(f"Invalid table name: {table_name}")
             
@@ -244,7 +269,13 @@ class SupabaseCache:
             conn.close()
 
     def update_print_info(self, order_id: int, status: str) -> None:
-        """주문의 출력 상태와 시각을 갱신합니다."""
+        """
+        Updates the print status, last print attempt timestamp, and increments print attempts for a given order.
+        
+        Args:
+            order_id: The unique identifier of the order to update.
+            status: The new print status to set for the order.
+        """
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 'UPDATE "order" SET print_status=?, last_print_attempt=CURRENT_TIMESTAMP, print_attempts=print_attempts+1 WHERE order_id=?',
