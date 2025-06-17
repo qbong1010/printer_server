@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, Tuple
 from functools import lru_cache
 import socket
 
-from .receipt_template import format_receipt
+from .receipt_template import format_receipt_string
 
 # 로깅 설정
 logging.basicConfig(

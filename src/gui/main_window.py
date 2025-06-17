@@ -1,8 +1,37 @@
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QTextEdit, QPushButton
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from .order_widget import OrderWidget
 from .printer_widget import PrinterWidget
 from src.supabase_client import SupabaseClient
+from src.printer.receipt_preview import read_receipt_file
+
+class ReceiptPreviewWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+        layout = QVBoxLayout(self)
+        
+        # 미리보기 텍스트 영역
+        self.preview_text = QTextEdit()
+        self.preview_text.setReadOnly(True)
+        self.preview_text.setFont(QFont("Courier New", 10))  # 고정폭 폰트 사용
+        
+        # 새로고침 버튼
+        refresh_btn = QPushButton("새로고침")
+        refresh_btn.clicked.connect(self.refresh_preview)
+        
+        layout.addWidget(refresh_btn)
+        layout.addWidget(self.preview_text)
+        
+        # 초기 미리보기 로드
+        self.refresh_preview()
+        
+    def refresh_preview(self):
+        preview_text = read_receipt_file()
+        if preview_text:
+            self.preview_text.setText(preview_text)
+        else:
+            self.preview_text.setText("영수증 미리보기를 불러올 수 없습니다.")
 
 class MainWindow(QMainWindow):
     def __init__(self, supabase_config, db_config):
@@ -27,6 +56,10 @@ class MainWindow(QMainWindow):
         # 프린터 설정 탭
         self.printer_widget = PrinterWidget()
         tab_widget.addTab(self.printer_widget, "프린터 설정")
+        
+        # 영수증 미리보기 탭
+        self.receipt_preview = ReceiptPreviewWidget()
+        tab_widget.addTab(self.receipt_preview, "영수증 미리보기")
         
         layout.addWidget(tab_widget)
 

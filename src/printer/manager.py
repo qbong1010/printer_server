@@ -25,10 +25,10 @@ class PrinterManager:
                 with open(self.config_file, "r", encoding="utf-8") as f:
                     config = json.load(f)
                     self.printer_name = config.get("printer_name")
-                    self.printer_type = config.get("printer_type", "default")
+                    self.printer_type = config.get("printer_type", "escpos")
             else:
                 self.printer_name = win32print.GetDefaultPrinter()
-                self.printer_type = "default"
+                self.printer_type = "escpos"
         except Exception as e:
             logger.exception("설정 로드 오류: %s", e)
             self.printer_name = win32print.GetDefaultPrinter()
