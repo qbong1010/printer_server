@@ -1,6 +1,7 @@
 import logging
 import os
 from escpos.printer import File
+from .receipt_template import format_receipt
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +15,7 @@ def print_receipt(order_data: dict) -> bool:
         output_file = os.path.join(output_dir, "test_print_output.bin")
         
         p = File(output_file, encoding='cp949')
-        p.set(align='center', bold=True, width=2, height=2)
-        p.text("ATOKETO\n")
-        p.set(align='left', bold=False, width=1, height=1)
-        p.text("주문번호: 123\n")
-        p.text("메뉴: 아보카도 포케 x1\n")
-        p.text("가격: 10,900원\n")
-        p.text("결제: 현장결제\n")
-        p.cut()
+        format_receipt(p, order_data)
         return True
     except Exception as e:
         logger.exception("파일 프린터 오류: %s", e)
