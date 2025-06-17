@@ -9,6 +9,8 @@ from typing import Optional, Dict, Any, Tuple
 from functools import lru_cache
 import socket
 
+from .receipt_template import format_receipt
+
 # 로깅 설정
 logging.basicConfig(
     level=logging.DEBUG,
@@ -188,82 +190,6 @@ def _get_printer():
         logger.error(f"Failed to initialize printer: {str(e)}")
         raise
 
-def _format_receipt_content(p: Any, order: Dict[str, Any]) -> None:
-    """영수증 내용을 포맷팅하여 출력"""
-    try:
-        def encode_text(text: str) -> bytes:
-            """텍스트를 CP949로 인코딩"""
-            try:
-                return text.encode('cp949')
-            except UnicodeEncodeError as e:
-                logger.error(f"CP949 인코딩 오류: {e}")
-                return text.encode('euc-kr', errors='replace')
-        
-        # 헤더
-        p.set(align="center", bold=True, width=2, height=2)
-        p.text(encode_text(f"{order.get('company_name', '')}\n"))
-        p.set(align="center", bold=True)
-        p.text(encode_text("*** 주문 영수증 ***\n\n"))
-        
-        # 주문 정보
-        p.set(align="left")
-        p.text(encode_text(f"주문번호: {order.get('order_id', '')}\n"))
-        p.text(encode_text(f"주문일시: {order.get('created_at', '')}\n"))
-        p.text(encode_text(f"주문유형: {'매장 식사' if order.get('is_dine_in', True) else '포장'}\n\n"))
-        
-        # 구분선
-        p.text(encode_text("-" * 32 + "\n"))
-        
-        # 주문 항목
-        p.set(align="left")
-        total = 0
-        for item in order["items"]:
-            name = item["name"]
-            qty = item["quantity"]
-            price = item["price"]
-            item_total = qty * price
-            total += item_total
-            
-            p.text(encode_text(f"{name}\n"))
-            # 옵션 출력
-            for opt in item.get("options", []):
-                p.text(encode_text(f"• {opt['name']}"))
-                if opt['price'] > 0:
-                    p.text(encode_text(f" (+{opt['price']:,}원)"))
-                p.text(encode_text("\n"))
-            
-            p.text(encode_text(f"수량: {qty}개 x {price:,}원 = {item_total:,}원\n\n"))
-        
-        # 구분선
-        p.text(encode_text("-" * 32 + "\n"))
-        
-        # 합계
-        p.set(align="left")
-        p.text(encode_text(f"소계: {total:,}원\n"))
-        tax = int(total * 0.1)
-        p.text(encode_text(f"부가세: {tax:,}원\n"))
-        p.set(bold=True)
-        p.text(encode_text(f"총 금액: {total:,}원\n\n"))
-        
-        # 푸터
-        p.set(align="center")
-        p.text(encode_text("감사합니다!\n"))
-        p.text(encode_text("맛있게 드세요~\n\n"))
-        
-        # 출력 시간
-        from datetime import datetime
-        current_time = datetime.now()
-        p.set(font='a', width=1, height=1)
-        p.text(encode_text(f"출력시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n"))
-        
-        # 커트
-        p.cut()
-        
-        return total
-        
-    except Exception as e:
-        logger.error(f"영수증 포맷팅 중 오류 발생: {str(e)}")
-        raise
 
 def print_receipt(order):
     """주문 정보를 받아 ESC/POS 프린터로 영수증을 출력한다."""
@@ -274,7 +200,7 @@ def print_receipt(order):
         
         logger.info("영수증 출력 시작...")
         # 영수증 내용 출력
-        total = _format_receipt_content(p, order)
+        total = format_receipt(p, order)
         logger.info(f"영수증 출력 완료. 총액: {total:,}원")
         
         # 부분 커트만 실행
