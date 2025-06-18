@@ -55,4 +55,4 @@ def format_receipt_string(order: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-print(format_receipt_string(order))
+# print(format_receipt_string(order))

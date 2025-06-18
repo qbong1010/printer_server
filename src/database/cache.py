@@ -90,6 +90,28 @@ class SupabaseCache:
             """)
             conn.commit()
             
+            # 기존 order 테이블에 새 컬럼들 추가 (마이그레이션)
+            try:
+                conn.execute("ALTER TABLE \"order\" ADD COLUMN print_status VARCHAR(20) DEFAULT '신규'")
+                conn.commit()
+                logger.info("print_status 컬럼이 추가되었습니다.")
+            except sqlite3.Error:
+                pass  # 이미 존재하는 경우
+                
+            try:
+                conn.execute("ALTER TABLE \"order\" ADD COLUMN print_attempts INTEGER DEFAULT 0")
+                conn.commit()
+                logger.info("print_attempts 컬럼이 추가되었습니다.")
+            except sqlite3.Error:
+                pass  # 이미 존재하는 경우
+                
+            try:
+                conn.execute("ALTER TABLE \"order\" ADD COLUMN last_print_attempt TIMESTAMP")
+                conn.commit()
+                logger.info("last_print_attempt 컬럼이 추가되었습니다.")
+            except sqlite3.Error:
+                pass  # 이미 존재하는 경우
+            
         except Exception as e:
             logger.error(f"데이터베이스 초기화 오류: {e}")
         finally:
@@ -164,6 +186,7 @@ class SupabaseCache:
         cursor = conn.cursor()
         query = """
         SELECT o.order_id, o.is_dine_in, o.total_price, o.created_at, o.signature_data,
+               o.print_status, o.print_attempts, o.last_print_attempt, o.is_printed,
                c.company_name, c.required_signature,
                oi.order_item_id, oi.quantity, oi.item_price,
                mi.menu_name,
@@ -189,6 +212,10 @@ class SupabaseCache:
             "total_price": rows[0]["total_price"],
             "created_at": rows[0]["created_at"],
             "signature_data": rows[0]["signature_data"],
+            "is_printed": bool(rows[0]["is_printed"]),
+            "print_status": rows[0]["print_status"],
+            "print_attempts": rows[0]["print_attempts"] or 0,
+            "last_print_attempt": rows[0]["last_print_attempt"],
             "items": [],
         }
         item_map: Dict[int, Dict[str, Any]] = {}

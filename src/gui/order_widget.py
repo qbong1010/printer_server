@@ -8,16 +8,25 @@ from PySide6.QtWidgets import (
     QLabel,
     QMessageBox,
     QProgressBar,
+    QCheckBox,
 )
 from PySide6.QtCore import Qt, Slot, QTimer
 import logging
 import sqlite3
 import requests
+from datetime import datetime, timedelta
 
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
 
 from src.printer.manager import PrinterManager
+
+# 주문 상태 Enum
+class OrderStatus:
+    NEW = "신규"
+    PRINTING = "출력중"
+    PRINTED = "출력완료"
+    PRINT_FAILED = "출력실패"
 
 class OrderWidget(QWidget):
     def __init__(self, supabase_config, db_config):
@@ -46,6 +55,12 @@ class OrderWidget(QWidget):
         title_label.setStyleSheet("font-size: 18px; font-weight: bold;")
         top_layout.addWidget(title_label)
         
+        # 자동 출력 체크박스 추가
+        self.auto_print_checkbox = QCheckBox("자동 출력")
+        self.auto_print_checkbox.setChecked(self.printer_manager.is_auto_print_enabled())
+        self.auto_print_checkbox.stateChanged.connect(self.toggle_auto_print)
+        top_layout.addWidget(self.auto_print_checkbox)
+        
         self.refresh_btn = QPushButton("새로고침")
         self.refresh_btn.clicked.connect(self.refresh_orders)
         top_layout.addWidget(self.refresh_btn)
@@ -67,9 +82,9 @@ class OrderWidget(QWidget):
         
         # 주문 테이블
         self.order_table = QTableWidget()
-        self.order_table.setColumnCount(7)
+        self.order_table.setColumnCount(8)
         self.order_table.setHorizontalHeaderLabels([
-            "주문번호", "회사명", "메뉴", "매장식사", "총액", "상태", "주문일시"
+            "주문번호", "회사명", "메뉴", "매장식사", "총액", "상태", "출력상태", "주문일시"
         ])
         self.order_table.horizontalHeader().setStretchLastSection(True)
         self.order_table.setEditTriggers(QTableWidget.NoEditTriggers)  # 편집 비활성화
@@ -111,7 +126,23 @@ class OrderWidget(QWidget):
             QProgressBar::chunk {
                 background-color: #4CAF50;
             }
+            QCheckBox {
+                font-weight: bold;
+                color: #2E7D32;
+            }
         """)
+    
+    @Slot()
+    def toggle_auto_print(self, state):
+        """자동 출력 기능을 토글합니다."""
+        enabled = state == Qt.Checked
+        config = self.printer_manager.get_auto_print_config()
+        config["enabled"] = enabled
+        self.printer_manager.set_auto_print_config(config)
+        
+        status = "활성화" if enabled else "비활성화"
+        self.notice_label.setText(f"자동 출력이 {status}되었습니다.")
+        logging.info(f"자동 출력 {status}")
     
     def set_loading_state(self, is_loading):
         """로딩 상태에 따라 UI 요소들을 업데이트합니다."""
@@ -124,6 +155,139 @@ class OrderWidget(QWidget):
         else:
             self.progress_bar.setRange(0, 100)
             self.progress_bar.setValue(100)
+    
+    def update_order_status(self, order_id: int, status: str, print_attempts: int = None):
+        """주문 상태를 업데이트합니다."""
+        try:
+            with sqlite3.connect(self.cache.db_path) as conn:
+                cursor = conn.cursor()
+                
+                # 현재 시간
+                now = datetime.now().isoformat()
+                
+                if print_attempts is not None:
+                    cursor.execute(
+                        'UPDATE "order" SET print_status = ?, print_attempts = ?, last_print_attempt = ? WHERE order_id = ?',
+                        (status, print_attempts, now, order_id)
+                    )
+                else:
+                    cursor.execute(
+                        'UPDATE "order" SET print_status = ?, last_print_attempt = ? WHERE order_id = ?',
+                        (status, now, order_id)
+                    )
+                
+                conn.commit()
+                logging.info(f"주문 {order_id}의 상태를 {status}로 업데이트")
+                
+                # Supabase에도 상태 업데이트 시도
+                if self.cache.base_url and status == OrderStatus.PRINTED:
+                    try:
+                        response = requests.patch(
+                            f"{self.cache.base_url}/rest/v1/order",
+                            headers=self.cache.headers,
+                            json={"is_printed": True},
+                            params={"order_id": f"eq.{order_id}"}
+                        )
+                        response.raise_for_status()
+                    except Exception as e:
+                        logging.error(f"Supabase 업데이트 실패: {e}")
+                        
+        except Exception as e:
+            logging.error(f"주문 상태 업데이트 오류: {e}")
+
+    def process_auto_print(self, order_data: dict) -> bool:
+        """자동 출력을 처리합니다."""
+        order_id = order_data.get("order_id")
+        
+        try:
+            # 이미 출력된 주문인지 확인
+            if order_data.get("print_status") == OrderStatus.PRINTED:
+                return True
+                
+            # 자동 출력 조건 확인
+            if not self.printer_manager.should_auto_print(order_data):
+                return False
+                
+            # 프린터 상태 확인
+            if not self.printer_manager.check_printer_status():
+                logging.warning("프린터 상태가 좋지 않습니다.")
+                self.update_order_status(order_id, OrderStatus.PRINT_FAILED)
+                return False
+                
+            # 출력 상태를 "출력중"으로 변경
+            self.update_order_status(order_id, OrderStatus.PRINTING)
+            
+            # 주문 데이터 형식 변환
+            formatted_order = {
+                "order_id": str(order_data.get("order_id", "N/A")),
+                "company_name": order_data.get("company_name", "N/A"),
+                "created_at": order_data.get("created_at", ""),
+                "is_dine_in": order_data.get("is_dine_in", True),
+                "items": []
+            }
+            
+            # 주문 항목 처리
+            for item in order_data.get("items", []):
+                formatted_item = {
+                    "name": item.get("name", "N/A"),
+                    "quantity": item.get("quantity", 1),
+                    "price": item.get("price", 0),
+                    "options": item.get("options", [])
+                }
+                formatted_order["items"].append(formatted_item)
+            
+            # 프린터 출력 시도
+            success = self.printer_manager.print_receipt(formatted_order)
+            
+            if success:
+                # 출력 성공
+                self.update_order_status(order_id, OrderStatus.PRINTED)
+                logging.info(f"주문 {order_id} 자동 출력 성공")
+                self.notice_label.setText(f"주문 {order_id}이(가) 자동으로 출력되었습니다.")
+                return True
+            else:
+                # 출력 실패 - 재시도 처리
+                return self.handle_print_retry(order_data)
+                
+        except Exception as e:
+            logging.error(f"자동 출력 처리 오류: {e}")
+            self.update_order_status(order_id, OrderStatus.PRINT_FAILED)
+            return False
+
+    def handle_print_retry(self, order_data: dict) -> bool:
+        """출력 재시도를 관리합니다."""
+        order_id = order_data.get("order_id")
+        current_attempts = order_data.get("print_attempts", 0)
+        max_attempts = self.printer_manager.auto_print_config.get("retry_count", 3)
+        
+        if current_attempts < max_attempts:
+            # 재시도 가능
+            new_attempts = current_attempts + 1
+            self.update_order_status(order_id, OrderStatus.NEW, new_attempts)
+            logging.info(f"주문 {order_id} 출력 실패, {new_attempts}/{max_attempts} 재시도 예정")
+            return False
+        else:
+            # 최대 재시도 횟수 초과
+            self.update_order_status(order_id, OrderStatus.PRINT_FAILED, new_attempts)
+            logging.error(f"주문 {order_id} 최대 재시도 횟수 초과, 수동 처리 필요")
+            self.notice_label.setText(f"주문 {order_id} 출력 실패 - 수동 처리 필요")
+            return False
+
+    def should_retry_print(self, order_data: dict) -> bool:
+        """재시도가 필요한지 확인합니다."""
+        if order_data.get("print_status") != OrderStatus.NEW:
+            return False
+            
+        last_attempt = order_data.get("last_print_attempt")
+        if not last_attempt:
+            return True
+            
+        try:
+            last_attempt_time = datetime.fromisoformat(last_attempt)
+            retry_interval = self.printer_manager.auto_print_config.get("retry_interval", 30)
+            return datetime.now() >= last_attempt_time + timedelta(seconds=retry_interval)
+        except Exception:
+            return True
     
     @Slot()
     def refresh_orders(self):
@@ -204,30 +368,12 @@ class OrderWidget(QWidget):
                 )
                 
                 if reply == QMessageBox.Yes:
-                    # 로컬 DB에 출력 상태 업데이트
-                    with sqlite3.connect(self.cache.db_path) as conn:
-                        cursor = conn.cursor()
-                        cursor.execute(
-                            'UPDATE "order" SET is_printed = 1 WHERE order_id = ?',
-                            (order_data["order_id"],)
-                        )
-                        conn.commit()
-                    
-                    # Supabase에도 출력 상태 업데이트
-                    if self.cache.base_url:
-                        try:
-                            response = requests.patch(
-                                f"{self.cache.base_url}/rest/v1/order",
-                                headers=self.cache.headers,
-                                json={"is_printed": True},
-                                params={"order_id": f"eq.{order_data['order_id']}"}
-                            )
-                            response.raise_for_status()
-                        except Exception as e:
-                            logging.error(f"Supabase 업데이트 실패: {e}")
+                    # 상태 업데이트
+                    self.update_order_status(order_data["order_id"], OrderStatus.PRINTED)
                     
                     # UI 업데이트
                     self.order_table.setItem(current_row, 5, QTableWidgetItem("출력완료"))
+                    self.order_table.setItem(current_row, 6, QTableWidgetItem(OrderStatus.PRINTED))
                     QMessageBox.information(self, "성공", "영수증이 성공적으로 출력되었습니다.")
                 else:
                     QMessageBox.warning(self, "출력 실패", "프린터 출력을 확인해주세요.")
@@ -268,9 +414,13 @@ class OrderWidget(QWidget):
             total_price = f"{order_data.get('total_price', 0):,}원"
             self.order_table.setItem(row_position, 4, QTableWidgetItem(total_price))
             
-            # 상태
+            # 상태 (기존 is_printed 기반)
             status = "출력완료" if order_data.get("is_printed", False) else "신규"
             self.order_table.setItem(row_position, 5, QTableWidgetItem(status))
+            
+            # 출력상태 (새로운 print_status 기반)
+            print_status = order_data.get("print_status", OrderStatus.NEW)
+            self.order_table.setItem(row_position, 6, QTableWidgetItem(print_status))
             
             # 주문일시
             created_at = order_data.get("created_at", "")
@@ -282,7 +432,7 @@ class OrderWidget(QWidget):
                     created_at = dt.strftime("%Y-%m-%d %H:%M:%S")
                 except:
                     pass
-            self.order_table.setItem(row_position, 6, QTableWidgetItem(created_at))
+            self.order_table.setItem(row_position, 7, QTableWidgetItem(created_at))
             
             self.orders.append(order_data)
         except Exception as e:
@@ -328,14 +478,38 @@ class OrderWidget(QWidget):
             self.set_loading_state(False)
 
     def check_for_updates(self):
-        """새 주문을 확인하고 필요한 경우 목록을 갱신"""
+        """새 주문을 확인하고 자동 출력을 처리합니다."""
         try:
             if self.cache.poll_new_orders():
-                self.notice_label.setText("새 주문이 있습니다. 새로고침해주세요.")
+                self.notice_label.setText("새 주문이 감지되었습니다.")
+                
+                # 주문 관련 테이블 동기화
+                for table in ["order", "order_item", "order_item_option"]:
+                    self.cache.fetch_and_store_table(table)
+                
+                # 최근 주문들 가져오기
+                recent_orders = self.cache.get_recent_orders(limit=10)
+                
+                # 자동 출력 처리
+                if self.printer_manager.is_auto_print_enabled():
+                    for order in recent_orders:
+                        order_detail = self.cache.join_order_detail(order["order_id"])
+                        
+                        # 출력 조건 확인 및 처리
+                        if order_detail.get("print_status", OrderStatus.NEW) == OrderStatus.NEW:
+                            if self.should_retry_print(order_detail):
+                                self.process_auto_print(order_detail)
+                        elif (order_detail.get("print_status") == OrderStatus.NEW and 
+                              order_detail.get("print_attempts", 0) > 0):
+                            # 재시도가 필요한 주문
+                            if self.should_retry_print(order_detail):
+                                self.process_auto_print(order_detail)
+                
+                # UI 새로고침
                 self.refresh_orders()
             else:
                 self.notice_label.setText("")
         except Exception as e:
-            logging.error(f"Error while polling new orders: {e}")
+            logging.error(f"주문 확인 및 자동 출력 처리 오류: {e}")
             self.notice_label.setText("주문 확인 중 오류가 발생했습니다.")
             pass

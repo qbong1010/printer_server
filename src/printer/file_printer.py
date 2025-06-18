@@ -52,6 +52,9 @@ def print_receipt_win(order_data: dict, printer_name: str = None) -> bool:
     """윈도우 프린터로 영수증을 출력합니다."""
     try:
         receipt_text = format_receipt_string(order_data)
+        # CP949로 인코딩/디코딩하여 한글 호환성 보장
+        receipt_text = receipt_text.encode('cp949', errors='replace').decode('cp949')
+        
         if not printer_name:
             printer_name = win32print.GetDefaultPrinter()
         hprinter = win32print.OpenPrinter(printer_name)

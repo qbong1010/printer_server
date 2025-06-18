@@ -62,6 +62,9 @@ CREATE TABLE IF NOT EXISTS "order" (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_printed INTEGER DEFAULT 0,
   signature_data TEXT,
+  print_status VARCHAR(20) DEFAULT '신규',
+  print_attempts INTEGER DEFAULT 0,
+  last_print_attempt TIMESTAMP,
   FOREIGN KEY (company_id) REFERENCES company(company_id)
 );
 
