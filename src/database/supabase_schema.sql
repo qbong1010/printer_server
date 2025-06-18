@@ -4,6 +4,7 @@
 CREATE TABLE public.company (
   company_id integer NOT NULL DEFAULT nextval('company_company_id_seq'::regclass),
   company_name character varying NOT NULL,
+  required_signature boolean DEFAULT false,
   CONSTRAINT company_pkey PRIMARY KEY (company_id)
 );
 CREATE TABLE public.menu_category (
@@ -59,6 +60,7 @@ CREATE TABLE public.order (
   total_price integer DEFAULT 0,
   created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
   is_printed boolean DEFAULT false,
+  signature_data text,
   CONSTRAINT order_pkey PRIMARY KEY (order_id),
   CONSTRAINT order_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.company(company_id)
 );

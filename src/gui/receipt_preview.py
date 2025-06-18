@@ -34,8 +34,9 @@ def try_decodings(data: bytes):
 def read_receipt_file() -> Optional[str]:
     """`test_print_output.bin` 파일을 읽어 영수증 텍스트를 반환한다."""
     try:
+        # gui 폴더에서 printer/output 폴더로의 상대 경로 수정
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(current_dir, "output", "test_receipt_output.bin")
+        path = os.path.join(current_dir, "..", "printer", "output", "test_receipt_output.bin")
 
         if not os.path.exists(path):
             return "영수증 파일이 없습니다."

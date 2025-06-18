@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QTabWidget, QTextEdit, QPushButton
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-from .order_widget import OrderWidget
-from .printer_widget import PrinterWidget
+from src.gui.order_widget import OrderWidget
+from src.gui.printer_widget import PrinterWidget
 from src.supabase_client import SupabaseClient
-from src.printer.receipt_preview import read_receipt_file
+from src.gui.receipt_preview import read_receipt_file
 
 class ReceiptPreviewWidget(QWidget):
     def __init__(self):

@@ -1,7 +1,10 @@
 import logging
 import os
 import sys
-from .receipt_template import format_receipt_string  # 문자열만 생성하는 함수로 교체
+from src.printer.receipt_template import format_receipt_string
+import win32print
+import win32ui
+from PIL import Image, ImageWin
 
 # 로깅 설정
 logging.basicConfig(
@@ -43,4 +46,30 @@ def print_receipt(order_data: dict) -> bool:
 
     except Exception as e:
         logger.exception("파일 프린터 오류: %s", e)
+        return False
+
+def print_receipt_win(order_data: dict, printer_name: str = None) -> bool:
+    """윈도우 프린터로 영수증을 출력합니다."""
+    try:
+        receipt_text = format_receipt_string(order_data)
+        if not printer_name:
+            printer_name = win32print.GetDefaultPrinter()
+        hprinter = win32print.OpenPrinter(printer_name)
+        hdc = None
+        try:
+            hprinter_info = win32print.GetPrinter(hprinter, 2)
+            pdc = win32ui.CreateDC()
+            pdc.CreatePrinterDC(printer_name)
+            pdc.StartDoc('POS Receipt')
+            pdc.StartPage()
+            # 텍스트 출력 (간단하게)
+            pdc.TextOut(100, 100, receipt_text)
+            pdc.EndPage()
+            pdc.EndDoc()
+            pdc.DeleteDC()
+        finally:
+            win32print.ClosePrinter(hprinter)
+        return True
+    except Exception as e:
+        logger.exception("윈도우 프린터 출력 오류: %s", e)
         return False

@@ -1,7 +1,8 @@
 -- SQLite 스키마
 CREATE TABLE IF NOT EXISTS company (
   company_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  company_name TEXT NOT NULL
+  company_name TEXT NOT NULL,
+  required_signature INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS menu_category (
@@ -60,6 +61,7 @@ CREATE TABLE IF NOT EXISTS "order" (
   total_price INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_printed INTEGER DEFAULT 0,
+  signature_data TEXT,
   FOREIGN KEY (company_id) REFERENCES company(company_id)
 );
 

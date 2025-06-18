@@ -163,8 +163,8 @@ class SupabaseCache:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         query = """
-        SELECT o.order_id, o.is_dine_in, o.total_price, o.created_at,
-               c.company_name,
+        SELECT o.order_id, o.is_dine_in, o.total_price, o.created_at, o.signature_data,
+               c.company_name, c.required_signature,
                oi.order_item_id, oi.quantity, oi.item_price,
                mi.menu_name,
                opt.option_item_name, opt.option_price
@@ -184,9 +184,11 @@ class SupabaseCache:
         order: Dict[str, Any] = {
             "order_id": rows[0]["order_id"],
             "company_name": rows[0]["company_name"],
+            "required_signature": bool(rows[0]["required_signature"]),
             "is_dine_in": bool(rows[0]["is_dine_in"]),
             "total_price": rows[0]["total_price"],
             "created_at": rows[0]["created_at"],
+            "signature_data": rows[0]["signature_data"],
             "items": [],
         }
         item_map: Dict[int, Dict[str, Any]] = {}
@@ -212,8 +214,8 @@ class SupabaseCache:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         query = """
-        SELECT o.order_id, o.company_id, o.is_dine_in, o.total_price, o.created_at,
-               c.company_name
+        SELECT o.order_id, o.company_id, o.is_dine_in, o.total_price, o.created_at, o.signature_data,
+               c.company_name, c.required_signature
         FROM "order" o
         JOIN company c ON c.company_id = o.company_id
         ORDER BY o.created_at DESC

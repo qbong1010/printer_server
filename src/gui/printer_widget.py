@@ -8,7 +8,8 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QMessageBox,
     QRadioButton,
-    QButtonGroup
+    QButtonGroup,
+    QLineEdit
 )
 from PySide6.QtCore import Qt, Signal
 from src.printer.manager import PrinterManager
@@ -25,40 +26,37 @@ class PrinterWidget(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
-        # 프린터 선택 그룹
-        printer_group = QGroupBox("프린터 설정")
-        printer_layout = QVBoxLayout()
-
-        # 프린터 목록
-        printer_list_layout = QHBoxLayout()
-        printer_list_layout.addWidget(QLabel("프린터:"))
-        self.printer_combo = QComboBox()
-        self.printer_combo.currentTextChanged.connect(self.on_printer_changed)
-        printer_list_layout.addWidget(self.printer_combo)
-        
-        refresh_btn = QPushButton("새로고침")
-        refresh_btn.clicked.connect(self.load_printers)
-        printer_list_layout.addWidget(refresh_btn)
-        
-        printer_layout.addLayout(printer_list_layout)
-
-        # 프린터 타입 선택
+        # 프린터 타입 선택 (최상단)
+        type_group = QGroupBox("프린터 타입")
         type_layout = QHBoxLayout()
-        type_layout.addWidget(QLabel("프린터 타입:"))
-        
         self.type_group = QButtonGroup()
         self.default_radio = QRadioButton("일반 프린터")
         self.escpos_radio = QRadioButton("ESC/POS 프린터")
-        self.escpos_radio.setChecked(True)
-        
+        self.network_radio = QRadioButton("네트워크 프린터")
+        self.default_radio.setChecked(True)
         self.type_group.addButton(self.default_radio)
         self.type_group.addButton(self.escpos_radio)
-        
+        self.type_group.addButton(self.network_radio)
         type_layout.addWidget(self.default_radio)
         type_layout.addWidget(self.escpos_radio)
+        type_layout.addWidget(self.network_radio)
         type_layout.addStretch()
-        
-        printer_layout.addLayout(type_layout)
+        type_group.setLayout(type_layout)
+        layout.addWidget(type_group)
+
+        # 프린터 설정 그룹 (아래쪽)
+        self.printer_group = QGroupBox("프린터 설정")
+        self.printer_layout = QVBoxLayout()
+        self.printer_group.setLayout(self.printer_layout)
+        layout.addWidget(self.printer_group)
+
+        # 동적 위젯 영역 초기화
+        self.init_printer_section()
+
+        # 프린터 타입 변경 시 동적 UI 변경
+        self.default_radio.toggled.connect(self.init_printer_section)
+        self.escpos_radio.toggled.connect(self.init_printer_section)
+        self.network_radio.toggled.connect(self.init_printer_section)
 
         # 테스트 출력 버튼
         test_layout = QHBoxLayout()
@@ -66,10 +64,7 @@ class PrinterWidget(QWidget):
         test_btn.clicked.connect(self.print_test)
         test_layout.addWidget(test_btn)
         test_layout.addStretch()
-        
-        printer_layout.addLayout(test_layout)
-        printer_group.setLayout(printer_layout)
-        layout.addWidget(printer_group)
+        layout.addLayout(test_layout)
 
         # 스타일 설정
         self.setStyleSheet("""
@@ -102,14 +97,91 @@ class PrinterWidget(QWidget):
             }
         """)
 
+    def init_printer_section(self):
+        # 기존 위젯 및 레이아웃 완전 제거
+        def clear_layout(layout):
+            while layout.count():
+                item = layout.takeAt(0)
+                widget = item.widget()
+                child_layout = item.layout()
+                if widget is not None:
+                    widget.deleteLater()
+                elif child_layout is not None:
+                    clear_layout(child_layout)
+                    child_layout.deleteLater()
+        clear_layout(self.printer_layout)
+
+        if self.default_radio.isChecked():
+            # 일반 프린터: 기존 콤보박스
+            printer_list_layout = QHBoxLayout()
+            printer_list_layout.addWidget(QLabel("프린터:"))
+            self.printer_combo = QComboBox()
+            self.printer_combo.currentTextChanged.connect(self.on_printer_changed)
+            printer_list_layout.addWidget(self.printer_combo)
+            refresh_btn = QPushButton("새로고침")
+            refresh_btn.clicked.connect(self.load_printers)
+            printer_list_layout.addWidget(refresh_btn)
+            self.printer_layout.addLayout(printer_list_layout)
+            self.load_printers()
+            # 확인 버튼
+            confirm_btn = QPushButton("확인")
+            confirm_btn.clicked.connect(self.confirm_default_printer)
+            self.printer_layout.addWidget(confirm_btn)
+        elif self.escpos_radio.isChecked():
+            # ESC/POS 프린터: Vendor ID, Product ID, Interface
+            escpos_layout = QVBoxLayout()
+            vid_layout = QHBoxLayout()
+            vid_layout.addWidget(QLabel("Vendor ID:"))
+            self.vendor_id_edit = QLineEdit()
+            self.vendor_id_edit.setText("0525")  # 0x0525
+            vid_layout.addWidget(self.vendor_id_edit)
+            escpos_layout.addLayout(vid_layout)
+            pid_layout = QHBoxLayout()
+            pid_layout.addWidget(QLabel("Product ID:"))
+            self.product_id_edit = QLineEdit()
+            self.product_id_edit.setText("A700")  # 0xA700
+            pid_layout.addWidget(self.product_id_edit)
+            escpos_layout.addLayout(pid_layout)
+            iface_layout = QHBoxLayout()
+            iface_layout.addWidget(QLabel("Interface:"))
+            self.interface_edit = QLineEdit()
+            self.interface_edit.setText("0")
+            iface_layout.addWidget(self.interface_edit)
+            escpos_layout.addLayout(iface_layout)
+            self.printer_layout.addLayout(escpos_layout)
+            # 확인 버튼
+            confirm_btn = QPushButton("확인")
+            confirm_btn.clicked.connect(self.confirm_escpos_printer)
+            self.printer_layout.addWidget(confirm_btn)
+        elif self.network_radio.isChecked():
+            # 네트워크 프린터: 네트워크 주소, 포트
+            net_layout = QVBoxLayout()
+            addr_layout = QHBoxLayout()
+            addr_layout.addWidget(QLabel("네트워크 주소:"))
+            self.network_addr_edit = QLineEdit()
+            self.network_addr_edit.setText("192.168.0.100")
+            addr_layout.addWidget(self.network_addr_edit)
+            net_layout.addLayout(addr_layout)
+            port_layout = QHBoxLayout()
+            port_layout.addWidget(QLabel("포트:"))
+            self.network_port_edit = QLineEdit()
+            self.network_port_edit.setText("9100")
+            port_layout.addWidget(self.network_port_edit)
+            net_layout.addLayout(port_layout)
+            self.printer_layout.addLayout(net_layout)
+            # 확인 버튼
+            confirm_btn = QPushButton("확인")
+            confirm_btn.clicked.connect(self.confirm_network_printer)
+            self.printer_layout.addWidget(confirm_btn)
+
     def load_printers(self):
-        """사용 가능한 프린터 목록을 로드합니다."""
+        if not hasattr(self, 'printer_combo'):
+            return
         try:
             self.printer_combo.clear()
             printers = self.printer_manager.list_printers()
             if printers:
                 self.printer_combo.addItems(printers)
-                # 현재 선택된 프린터가 있다면 해당 프린터 선택
                 current_printer = self.printer_manager.get_current_printer()
                 if current_printer in printers:
                     self.printer_combo.setCurrentText(current_printer)
@@ -146,4 +218,23 @@ class PrinterWidget(QWidget):
             else:
                 QMessageBox.warning(self, "실패", "테스트 출력에 실패했습니다.")
         except Exception as e:
-            QMessageBox.warning(self, "오류", f"테스트 출력 중 오류가 발생했습니다: {str(e)}") 
+            QMessageBox.warning(self, "오류", f"테스트 출력 중 오류가 발생했습니다: {str(e)}")
+
+    def confirm_default_printer(self):
+        value = self.printer_combo.currentText() if hasattr(self, 'printer_combo') else ''
+        self.printer_manager.set_printer(value)
+        self.printer_manager.set_printer_type("default")
+        QMessageBox.information(self, "적용 완료", f"선택된 프린터가 저장되었습니다: {value}")
+
+    def confirm_escpos_printer(self):
+        vid = self.vendor_id_edit.text() if hasattr(self, 'vendor_id_edit') else ''
+        pid = self.product_id_edit.text() if hasattr(self, 'product_id_edit') else ''
+        iface = self.interface_edit.text() if hasattr(self, 'interface_edit') else ''
+        self.printer_manager.set_printer_type("escpos", {"vendor_id": vid, "product_id": pid, "interface": iface})
+        QMessageBox.information(self, "적용 완료", f"ESC/POS 정보가 저장되었습니다:\nVendor ID: {vid}\nProduct ID: {pid}\nInterface: {iface}")
+
+    def confirm_network_printer(self):
+        addr = self.network_addr_edit.text() if hasattr(self, 'network_addr_edit') else ''
+        port = self.network_port_edit.text() if hasattr(self, 'network_port_edit') else ''
+        self.printer_manager.set_printer_type("network", {"address": addr, "port": port})
+        QMessageBox.information(self, "적용 완료", f"네트워크 프린터 정보가 저장되었습니다:\n주소: {addr}\n포트: {port}") 
