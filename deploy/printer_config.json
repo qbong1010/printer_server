@@ -1,5 +1,5 @@
 {
-  "printer_type": "default",
+  "printer_type": "escpos",
   "printer_name": "SLK-TS400",
   "usb_info": {
     "vendor_id": "0525",
