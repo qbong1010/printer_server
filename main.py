@@ -25,7 +25,7 @@ def check_for_updates_async():
     """백그라운드에서 업데이트 확인"""
     try:
         # GitHub 저장소 이름을 실제 저장소로 변경하세요
-        github_repo = "your-username/posprinter_supabase"
+        github_repo = "qbong1010/posprinter_supabase"
         
         if check_and_update(github_repo, auto_apply=False):
             logging.info("업데이트가 확인되었습니다.")
