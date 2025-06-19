@@ -2,10 +2,10 @@
 
 
 a = Analysis(
-    ['C:\\Users\\dohwa\\Desktop\\MyPlugin\\posprinter_supabase\\main.py'],
+    ['C:\\Users\\POS\\Desktop\\posprinter_supabase\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[('src', 'src'), ('printer_config.json', '.'), ('C:\\Users\\dohwa\\Desktop\\MyPlugin\\posprinter_supabase\\venv\\Lib\\site-packages\\escpos\\capabilities.json', 'escpos/.'), ('C:\\Users\\dohwa\\Desktop\\MyPlugin\\posprinter_supabase\\venv\\Lib\\site-packages\\escpos\\capabilities_win.json', 'escpos/.')],
+    datas=[('src', 'src'), ('printer_config.json', '.'), ('C:\\Users\\POS\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\escpos\\capabilities.json', 'escpos/.'), ('C:\\Users\\POS\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\escpos\\capabilities_win.json', 'escpos/.')],
     hiddenimports=['PySide6.QtCore', 'PySide6.QtWidgets', 'PySide6.QtGui', 'websockets', 'requests', 'python_escpos', 'psutil', 'pyusb', 'serial', 'escpos', 'escpos.capabilities'],
     hookspath=[],
     hooksconfig={},

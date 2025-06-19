@@ -75,9 +75,18 @@ class OrderWidget(QWidget):
         self.sync_btn.clicked.connect(self.sync_static_tables)
         top_layout.addWidget(self.sync_btn)
 
-        self.print_btn = QPushButton("영수증 출력")
-        self.print_btn.clicked.connect(self.print_receipt)
-        top_layout.addWidget(self.print_btn, alignment=Qt.AlignRight)
+        # 영수증 출력 버튼들
+        self.print_customer_btn = QPushButton("손님 영수증")
+        self.print_customer_btn.clicked.connect(self.print_customer_receipt)
+        top_layout.addWidget(self.print_customer_btn)
+
+        self.print_kitchen_btn = QPushButton("주방 영수증")
+        self.print_kitchen_btn.clicked.connect(self.print_kitchen_receipt)
+        top_layout.addWidget(self.print_kitchen_btn)
+
+        self.print_both_btn = QPushButton("동시 출력")
+        self.print_both_btn.clicked.connect(self.print_both_receipts)
+        top_layout.addWidget(self.print_both_btn, alignment=Qt.AlignRight)
         
         layout.addLayout(top_layout)
         
@@ -164,7 +173,9 @@ class OrderWidget(QWidget):
         """로딩 상태에 따라 UI 요소들을 업데이트합니다."""
         self.refresh_btn.setEnabled(not is_loading)
         self.sync_btn.setEnabled(not is_loading)
-        self.print_btn.setEnabled(not is_loading)
+        self.print_customer_btn.setEnabled(not is_loading)
+        self.print_kitchen_btn.setEnabled(not is_loading)
+        self.print_both_btn.setEnabled(not is_loading)
         self.progress_bar.setVisible(is_loading)
         if is_loading:
             self.progress_bar.setRange(0, 0)  # 무한 로딩 표시
@@ -344,19 +355,40 @@ class OrderWidget(QWidget):
                 }
                 formatted_order["items"].append(formatted_item)
             
-            # 프린터 출력 시도
-            success = self.printer_manager.print_receipt(formatted_order)
+            # 양쪽 프린터 동시 출력 시도
+            results = self.printer_manager.print_both_receipts(formatted_order)
+            customer_success = results["customer"]
+            kitchen_success = results["kitchen"]
             
-            if success:
-                # 출력 성공
+            if customer_success and kitchen_success:
+                # 모든 프린터 출력 성공
                 self.update_order_status(order_id, OrderStatus.PRINTED)
-                logging.info(f"주문 {order_id} 자동 출력 성공")
-                self.notice_label.setText(f"주문 {order_id}이(가) 자동으로 출력되었습니다.")
+                logging.info(f"주문 {order_id} 자동 출력 성공 (손님용+주방용)")
+                self.notice_label.setText(f"주문 {order_id}이(가) 자동으로 출력되었습니다 (손님용+주방용).")
                 return True
+            elif customer_success or kitchen_success:
+                # 부분 성공
+                success_printers = []
+                if customer_success:
+                    success_printers.append("손님용")
+                if kitchen_success:
+                    success_printers.append("주방용")
+                
+                logging.warning(f"주문 {order_id} 자동 출력 부분 성공: {', '.join(success_printers)}")
+                self.notice_label.setText(f"주문 {order_id} 일부 프린터만 출력됨: {', '.join(success_printers)}")
+                
+                # 손님용 프린터만 성공해도 주문을 완료로 처리
+                if customer_success:
+                    self.update_order_status(order_id, OrderStatus.PRINTED)
+                    return True
+                else:
+                    self.update_order_status(order_id, OrderStatus.PRINT_FAILED)
+                    return False
             else:
-                # 출력 실패
+                # 모든 프린터 출력 실패
                 self.update_order_status(order_id, OrderStatus.PRINT_FAILED)
-                logging.error(f"주문 {order_id} 자동 출력 실패")
+                logging.error(f"주문 {order_id} 자동 출력 실패 (모든 프린터)")
+                self.notice_label.setText(f"주문 {order_id} 자동 출력 실패")
                 return False
                 
         except Exception as e:
@@ -408,52 +440,114 @@ class OrderWidget(QWidget):
         finally:
             self.set_loading_state(False)
     
-    @Slot()
-    def print_receipt(self):
-        # 선택된 주문의 영수증 출력
+    def get_selected_order_data(self):
+        """선택된 주문 데이터를 가져와서 포맷팅합니다."""
         current_row = self.order_table.currentRow()
         if current_row < 0:
             QMessageBox.warning(self, "경고", "출력할 주문을 선택해주세요.")
-            return
+            return None
             
         order_item = self.order_table.item(current_row, 0)
         if not order_item:
             QMessageBox.warning(self, "경고", "선택한 주문 데이터를 찾을 수 없습니다.")
-            return
+            return None
             
         order_data = order_item.data(Qt.UserRole)
         if not order_data:
             QMessageBox.warning(self, "경고", "선택한 주문 데이터가 유효하지 않습니다.")
-            return
+            return None
             
-        try:
-            # 주문 데이터 형식 변환
-            formatted_order = {
-                "order_id": str(order_data.get("order_id", "N/A")),
-                "company_name": order_data.get("company_name", "N/A"),
-                "created_at": order_data.get("created_at", ""),
-                "is_dine_in": order_data.get("is_dine_in", True),
-                "items": []
+        # 주문 데이터 형식 변환
+        formatted_order = {
+            "order_id": str(order_data.get("order_id", "N/A")),
+            "company_name": order_data.get("company_name", "N/A"),
+            "created_at": order_data.get("created_at", ""),
+            "is_dine_in": order_data.get("is_dine_in", True),
+            "items": []
+        }
+        
+        # 주문 항목 처리
+        for item in order_data.get("items", []):
+            formatted_item = {
+                "name": item.get("name", "N/A"),
+                "quantity": item.get("quantity", 1),
+                "price": item.get("price", 0),
+                "options": item.get("options", [])
             }
+            formatted_order["items"].append(formatted_item)
+        
+        return formatted_order, order_data, current_row
+
+    @Slot()
+    def print_customer_receipt(self):
+        """손님용 영수증만 출력합니다."""
+        try:
+            result = self.get_selected_order_data()
+            if not result:
+                return
             
-            # 주문 항목 처리
-            for item in order_data.get("items", []):
-                formatted_item = {
-                    "name": item.get("name", "N/A"),
-                    "quantity": item.get("quantity", 1),
-                    "price": item.get("price", 0),
-                    "options": item.get("options", [])
-                }
-                formatted_order["items"].append(formatted_item)
+            formatted_order, order_data, current_row = result
             
-            # 프린터 출력 시도
-            success = self.printer_manager.print_receipt(formatted_order)
+            # 디버깅을 위한 설정 정보 확인
+            customer_config = self.printer_manager.get_customer_printer_config()
+            logging.info(f"손님용 영수증 출력 시작 - 설정: {customer_config}")
+            
+            # 손님용 프린터 출력 시도
+            success = self.printer_manager.print_customer_receipt(formatted_order)
+            
             if success:
-                # 실제로 출력이 되었는지 사용자에게 확인
+                QMessageBox.information(self, "성공", "손님용 영수증이 출력되었습니다.")
+            else:
+                QMessageBox.warning(self, "실패", f"손님용 영수증 출력에 실패했습니다.\n현재 설정: {customer_config.get('printer_type', 'Unknown')}")
+                
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"손님용 영수증 출력 중 오류가 발생했습니다: {str(e)}")
+            logging.error(f"손님용 영수증 출력 오류: {e}")
+
+    @Slot()
+    def print_kitchen_receipt(self):
+        """주방용 영수증만 출력합니다."""
+        try:
+            result = self.get_selected_order_data()
+            if not result:
+                return
+            
+            formatted_order, order_data, current_row = result
+            
+            # 주방용 프린터 출력 시도
+            success = self.printer_manager.print_kitchen_receipt(formatted_order)
+            
+            if success:
+                QMessageBox.information(self, "성공", "주방용 영수증이 출력되었습니다.")
+            else:
+                QMessageBox.warning(self, "실패", "주방용 영수증 출력에 실패했습니다.\nCOM 포트 연결을 확인해주세요.")
+                
+        except Exception as e:
+            QMessageBox.warning(self, "오류", f"주방용 영수증 출력 중 오류가 발생했습니다: {str(e)}")
+            logging.error(f"주방용 영수증 출력 오류: {e}")
+
+    @Slot()
+    def print_both_receipts(self):
+        """손님용과 주방용 영수증을 동시에 출력합니다."""
+        try:
+            result = self.get_selected_order_data()
+            if not result:
+                return
+            
+            formatted_order, order_data, current_row = result
+            
+            # 양쪽 프린터 동시 출력 시도
+            results = self.printer_manager.print_both_receipts(formatted_order)
+            
+            customer_success = results["customer"]
+            kitchen_success = results["kitchen"]
+            
+            if customer_success and kitchen_success:
+                # 출력 성공 확인
                 reply = QMessageBox.question(
                     self,
                     "출력 확인",
-                    "영수증이 정상적으로 출력되었습니까?",
+                    "손님용과 주방용 영수증이 모두 정상적으로 출력되었습니까?",
                     QMessageBox.Yes | QMessageBox.No,
                     QMessageBox.Yes
                 )
@@ -461,7 +555,6 @@ class OrderWidget(QWidget):
                 if reply == QMessageBox.Yes:
                     # 상태 업데이트
                     self.update_order_status(order_data["order_id"], OrderStatus.PRINTED)
-                    # is_printed 상태도 업데이트
                     self.update_is_printed_status(order_data["order_id"], True)
                     
                     # UI 업데이트
@@ -470,10 +563,31 @@ class OrderWidget(QWidget):
                     QMessageBox.information(self, "성공", "영수증이 성공적으로 출력되었습니다.")
                 else:
                     QMessageBox.warning(self, "출력 실패", "프린터 출력을 확인해주세요.")
+            elif customer_success or kitchen_success:
+                success_msg = []
+                fail_msg = []
+                if customer_success:
+                    success_msg.append("손님용")
+                else:
+                    fail_msg.append("손님용")
+                if kitchen_success:
+                    success_msg.append("주방용")
+                else:
+                    fail_msg.append("주방용")
+                
+                message = f"출력 결과:\n성공: {', '.join(success_msg)}\n실패: {', '.join(fail_msg)}"
+                QMessageBox.warning(self, "부분 성공", message)
             else:
-                QMessageBox.warning(self, "출력 실패", "영수증 출력 중 오류가 발생했습니다.")
+                QMessageBox.warning(self, "실패", "양쪽 영수증 출력에 모두 실패했습니다.")
+                
         except Exception as e:
-            QMessageBox.warning(self, "오류", f"영수증 출력 중 예외가 발생했습니다: {str(e)}")
+            QMessageBox.warning(self, "오류", f"영수증 출력 중 오류가 발생했습니다: {str(e)}")
+            logging.error(f"영수증 출력 오류: {e}")
+
+    @Slot()
+    def print_receipt(self):
+        """기존 호환성을 위한 메서드 (동시 출력으로 연결)"""
+        self.print_both_receipts()
 
     def add_order(self, order_data):
         """새로운 주문을 테이블에 추가"""

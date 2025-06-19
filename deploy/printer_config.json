@@ -11,7 +11,7 @@
     "port": "9100"
   },
   "auto_print": {
-    "enabled": false,
+    "enabled": true,
     "retry_count": 3,
     "retry_interval": 30,
     "check_printer_status": true
