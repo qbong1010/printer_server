@@ -43,18 +43,23 @@ def print_receipt_com(order_data: Dict[str, Any], com_port: str = "COM3", baudra
                 receipt_bytes = receipt_text.encode('utf-8')
             
             # 프린터 제어 명령어 추가 (ESC/POS 호환)
-            # 폰트 크기 정상, 왼쪽 정렬
             esc_commands = b'\x1b\x40'  # 프린터 초기화
             esc_commands += b'\x1b\x61\x00'  # 왼쪽 정렬
+            esc_commands += b'\x1b\x45\x01'  # 볼드체 켜기
+            esc_commands += b'\x1d\x21\x11'  # 가로/세로 2배 크기
             
             # 제어 명령어 + 영수증 내용 + 용지 컷팅 명령어
-            full_data = esc_commands + receipt_bytes + b'\x1d\x56\x00'  # 부분 컷팅
+            # 출력 후 볼드 및 크기 리셋
+            reset_commands = b'\x1b\x45\x00'  # 볼드체 끄기
+            reset_commands += b'\x1d\x21\x00'  # 정상 크기로 복원
+            
+            full_data = esc_commands + receipt_bytes + reset_commands + b'\x1d\x56\x00'  # 부분 컷팅
             
             # 데이터 전송
             ser.write(full_data)
             ser.flush()  # 버퍼 플러시
             
-            logger.info(f"COM 포트 {com_port}로 영수증 출력 완료")
+            logger.info(f"COM 포트 {com_port}로 영수증 출력 완료 (볼드체, 큰 글자)")
             return True
             
     except serial.SerialException as e:
@@ -78,11 +83,22 @@ def test_com_printer(com_port: str = "COM3", baudrate: int = 9600) -> bool:
     try:
         with serial.Serial(com_port, baudrate, timeout=2) as ser:
             if ser.is_open:
-                # 간단한 테스트 메시지 전송
+                # 간단한 테스트 메시지 전송 (볼드, 큰 글자로)
+                esc_commands = b'\x1b\x40'  # 초기화
+                esc_commands += b'\x1b\x45\x01'  # 볼드체 켜기
+                esc_commands += b'\x1d\x21\x11'  # 가로/세로 2배 크기
+                
                 test_message = "프린터 연결 테스트\n\n\n"
-                ser.write(test_message.encode('cp949'))
+                test_bytes = test_message.encode('cp949')
+                
+                reset_commands = b'\x1b\x45\x00'  # 볼드체 끄기
+                reset_commands += b'\x1d\x21\x00'  # 정상 크기로 복원
+                
+                full_data = esc_commands + test_bytes + reset_commands
+                
+                ser.write(full_data)
                 ser.flush()
-                logger.info(f"COM 포트 {com_port} 연결 테스트 성공")
+                logger.info(f"COM 포트 {com_port} 연결 테스트 성공 (볼드체, 큰 글자)")
                 return True
             else:
                 logger.error(f"COM 포트 {com_port} 열기 실패")
@@ -168,18 +184,24 @@ def print_kitchen_receipt_com(order_data: Dict[str, Any], com_port: str = "COM3"
             except UnicodeEncodeError:
                 receipt_bytes = receipt_text.encode('utf-8')
             
-            # ESC/POS 명령어
+            # ESC/POS 명령어 (주방용도 볼드, 큰 글자로)
             esc_commands = b'\x1b\x40'  # 초기화
             esc_commands += b'\x1b\x61\x00'  # 왼쪽 정렬
+            esc_commands += b'\x1b\x45\x01'  # 볼드체 켜기
+            esc_commands += b'\x1d\x21\x11'  # 가로/세로 2배 크기
+            
+            # 출력 후 리셋
+            reset_commands = b'\x1b\x45\x00'  # 볼드체 끄기
+            reset_commands += b'\x1d\x21\x00'  # 정상 크기로 복원
             
             # 전체 데이터
-            full_data = esc_commands + receipt_bytes + b'\x1d\x56\x00'  # 부분 컷팅
+            full_data = esc_commands + receipt_bytes + reset_commands + b'\x1d\x56\x00'  # 부분 컷팅
             
             # 데이터 전송
             ser.write(full_data)
             ser.flush()
             
-            logger.info(f"주방용 영수증 COM 포트 {com_port} 출력 완료")
+            logger.info(f"주방용 영수증 COM 포트 {com_port} 출력 완료 (볼드체, 큰 글자)")
             return True
             
     except Exception as e:
