@@ -32,9 +32,6 @@ class PrinterManager:
                         "enabled": False,
                         "retry_count": 3,
                         "retry_interval": 30,
-                        "business_hours_start": "09:00",
-                        "business_hours_end": "18:00",
-                        "print_dine_in_only": False,
                         "check_printer_status": True
                     })
             else:
@@ -46,9 +43,6 @@ class PrinterManager:
                     "enabled": False,
                     "retry_count": 3,
                     "retry_interval": 30,
-                    "business_hours_start": "09:00",
-                    "business_hours_end": "18:00",
-                    "print_dine_in_only": False,
                     "check_printer_status": True
                 }
         except Exception as e:
@@ -61,9 +55,6 @@ class PrinterManager:
                 "enabled": False,
                 "retry_count": 3,
                 "retry_interval": 30,
-                "business_hours_start": "09:00",
-                "business_hours_end": "18:00",
-                "print_dine_in_only": False,
                 "check_printer_status": True
             }
 
@@ -144,39 +135,20 @@ class PrinterManager:
         """자동 출력이 활성화되어 있는지 확인합니다."""
         return self.auto_print_config.get("enabled", False)
 
-    def is_business_hours(self) -> bool:
-        """현재가 영업시간인지 확인합니다."""
-        if not self.auto_print_config.get("enabled", False):
-            return True
-            
-        try:
-            now = datetime.now().time()
-            start_time = datetime.strptime(self.auto_print_config.get("business_hours_start", "09:00"), "%H:%M").time()
-            end_time = datetime.strptime(self.auto_print_config.get("business_hours_end", "18:00"), "%H:%M").time()
-            
-            if start_time <= end_time:
-                return start_time <= now <= end_time
-            else:  # 24시간을 넘어가는 경우 (예: 22:00 - 06:00)
-                return now >= start_time or now <= end_time
-        except Exception as e:
-            logger.error(f"영업시간 확인 오류: {e}")
-            return True
-
     def should_auto_print(self, order_data: dict) -> bool:
         """주문이 자동 출력 조건을 만족하는지 확인합니다."""
+        order_id = order_data.get("order_id", "N/A")
+        
         if not self.is_auto_print_enabled():
+            logger.info(f"주문 {order_id}: 자동 출력이 비활성화되어 있음")
             return False
-            
-        if not self.is_business_hours():
-            logger.info("영업시간이 아니므로 자동 출력을 건너뜁니다.")
+        
+        # 이미 출력된 주문인지 확인
+        if order_data.get("is_printed", False):
+            logger.info(f"주문 {order_id}: 이미 출력됨")
             return False
-            
-        # 매장식사만 출력 옵션 확인
-        if self.auto_print_config.get("print_dine_in_only", False):
-            if not order_data.get("is_dine_in", True):
-                logger.info("포장 주문이므로 자동 출력을 건너뜁니다.")
-                return False
                 
+        logger.info(f"주문 {order_id}: 자동 출력 조건을 만족함")
         return True
 
     def check_printer_status(self) -> bool:
@@ -190,10 +162,28 @@ class PrinterManager:
                 flags = win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS
                 printers = [p[2] for p in win32print.EnumPrinters(flags)]
                 return self.printer_name in printers
-            else:
-                # ESC/POS, 네트워크 프린터는 실제 연결 테스트 없이 True 반환
-                # 실제 출력 시에 오류가 발생하면 재시도 메커니즘에서 처리
+            elif self.printer_type == "escpos":
+                # ESC/POS 프린터의 경우 USB 정보가 있는지 확인
+                usb_info = getattr(self, "usb_info", {})
+                vendor_id = usb_info.get("vendor_id")
+                product_id = usb_info.get("product_id")
+                if not vendor_id or not product_id:
+                    logger.warning("ESC/POS 프린터의 USB 정보가 설정되지 않았습니다.")
+                    return False
+                # USB 정보가 설정되어 있으면 일단 True로 반환 (실제 연결 테스트는 출력 시에 수행)
                 return True
+            elif self.printer_type == "network":
+                # 네트워크 프린터의 경우 주소 정보가 있는지 확인
+                network_info = getattr(self, "network_info", {})
+                address = network_info.get("address")
+                if not address:
+                    logger.warning("네트워크 프린터의 주소가 설정되지 않았습니다.")
+                    return False
+                return True
+            else:
+                # 알 수 없는 프린터 타입
+                logger.warning(f"알 수 없는 프린터 타입: {self.printer_type}")
+                return False
         except Exception as e:
             logger.error(f"프린터 상태 확인 오류: {e}")
             return False

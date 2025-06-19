@@ -25,7 +25,7 @@ VALID_TABLES = {
 }
 
 class SupabaseCache:
-    """SQLite에 Supabase 테이블을 캐싱하고 최신 주문을 감지합니다."""
+    """SQLite에 Supabase 테이블을 캐싱합니다."""
 
     def __init__(self, db_path: Path = DB_PATH, supabase_config: Optional[Dict[str, str]] = None) -> None:
         self.db_path = Path(db_path)
@@ -35,32 +35,6 @@ class SupabaseCache:
             "apikey": self.api_key or "",
             "Authorization": f"Bearer {self.api_key}" if self.api_key else "",
         }
-        self.last_order_id = 0
-        self._load_last_order_id()
-
-    # ------------------------------------------------------------------
-    def _load_last_order_id(self) -> None:
-        """캐시 DB에서 마지막 주문 ID를 불러옵니다."""
-        if not self.db_path.exists():
-            return
-        with sqlite3.connect(self.db_path) as conn:
-            with suppress(sqlite3.Error):
-                row = conn.execute(
-                    "SELECT value FROM cache_meta WHERE key='last_order_id'"
-                ).fetchone()
-                if row and row[0] is not None:
-                    self.last_order_id = int(row[0])
-
-    def _save_last_order_id(self) -> None:
-        """마지막 주문 ID를 캐시 DB에 저장합니다."""
-        with suppress(sqlite3.Error):
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    "INSERT INTO cache_meta (key, value) VALUES ('last_order_id', ?) "
-                    "ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-                    (str(self.last_order_id),),
-                )
-                conn.commit()
 
     # ------------------------------------------------------------------
     def setup_sqlite(self) -> None:
@@ -151,32 +125,6 @@ class SupabaseCache:
             cursor.execute(insert_sql, values)
         conn.commit()
         conn.close()
-
-    # ------------------------------------------------------------------
-    def poll_new_orders(self) -> bool:
-        """가장 최근 주문 ID를 확인하여 변경 여부를 반환합니다."""
-        if not self.base_url:
-            return False
-        params = {"select": "order_id", "order": "order_id.desc", "limit": "1"}
-        try:
-            resp = requests.get(
-                f"{self.base_url}/rest/v1/order",
-                headers=self.headers,
-                params=params,
-                timeout=10,
-            )
-            resp.raise_for_status()
-        except requests.Timeout:
-            logger.error("Timeout while polling for new orders")
-            return False
-        data = resp.json()
-        if data:
-            current_id = data[0].get("order_id", 0)
-            if current_id != self.last_order_id:
-                self.last_order_id = current_id
-                self._save_last_order_id()
-                return True
-        return False
 
     # ------------------------------------------------------------------
     def join_order_detail(self, order_id: int) -> Dict[str, Any]:

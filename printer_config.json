@@ -1,6 +1,6 @@
 {
-  "printer_type": "escpos",
-  "printer_name": "OneNote (Desktop)",
+  "printer_type": "default",
+  "printer_name": "SLK-TS400",
   "usb_info": {
     "vendor_id": "0525",
     "product_id": "A700",
@@ -11,12 +11,9 @@
     "port": "9100"
   },
   "auto_print": {
-    "enabled": false,
+    "enabled": true,
     "retry_count": 3,
     "retry_interval": 30,
-    "business_hours_start": "09:00",
-    "business_hours_end": "18:00",
-    "print_dine_in_only": false,
     "check_printer_status": true
   }
 }

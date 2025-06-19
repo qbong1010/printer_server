@@ -53,6 +53,3 @@ def format_receipt_string(order: Dict[str, Any]) -> str:
     lines.append(f"출력시간: {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
     return "\n".join(lines)
-
-
-# print(format_receipt_string(order))

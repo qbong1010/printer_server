@@ -7,6 +7,4 @@ requests>=2.31.0
 python-escpos>=3.0.0
 psutil>=5.9.0
 pyusb>=1.2.1
-libusb1>=1.9.3
-python-escpos>=3.0.0
 pyserial>=3.5
