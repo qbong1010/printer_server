@@ -87,3 +87,27 @@ CREATE TABLE IF NOT EXISTS cache_meta (
   key text PRIMARY KEY,
   value text
 );
+
+-- 애플리케이션 로그 테이블 추가
+CREATE TABLE public.app_logs (
+  log_id bigint NOT NULL DEFAULT nextval('app_logs_log_id_seq'::regclass),
+  client_id character varying NOT NULL,
+  client_name character varying,
+  log_level character varying NOT NULL,
+  log_type character varying NOT NULL, -- 'startup', 'shutdown', 'error', 'info', 'warning'
+  message text NOT NULL,
+  error_details text,
+  module_name character varying,
+  function_name character varying,
+  line_number integer,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+  app_version character varying,
+  os_info character varying,
+  CONSTRAINT app_logs_pkey PRIMARY KEY (log_id)
+);
+
+-- 인덱스 추가 (성능 최적화)
+CREATE INDEX idx_app_logs_client_id ON public.app_logs(client_id);
+CREATE INDEX idx_app_logs_created_at ON public.app_logs(created_at);
+CREATE INDEX idx_app_logs_log_level ON public.app_logs(log_level);
+CREATE INDEX idx_app_logs_log_type ON public.app_logs(log_type);
