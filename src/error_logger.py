@@ -7,10 +7,20 @@ import traceback
 import json
 from datetime import datetime
 from typing import Optional, Dict, Any
+from zoneinfo import ZoneInfo
 import requests
 import threading
 from queue import Queue, Empty
 import time
+from pathlib import Path
+
+
+class KSTFormatter(logging.Formatter):
+    """Asia/Seoul 타임존으로 로그 시간을 표시하는 포맷터"""
+
+    def converter(self, timestamp: float):
+        dt = datetime.fromtimestamp(timestamp, tz=ZoneInfo("Asia/Seoul"))
+        return dt.timetuple()
 
 class SupabaseLogHandler(logging.Handler):
     """Supabase에 로그를 실시간으로 전송하는 로깅 핸들러"""
@@ -30,6 +40,10 @@ class SupabaseLogHandler(logging.Handler):
         self.shutdown_event = threading.Event()  # 종료 이벤트 추가
         self.worker_thread = threading.Thread(target=self._log_worker, daemon=True)
         self.worker_thread.start()
+
+        # 오프라인 로그 저장 경로
+        self.offline_log_path = Path(os.getenv("OFFLINE_LOG_PATH", "offline_logs.jsonl"))
+        self.connected = False
         
         # 헤더 설정
         self.headers = {
@@ -91,6 +105,8 @@ class SupabaseLogHandler(logging.Handler):
         # 로그 타입 결정
         log_type = self._determine_log_type(record)
         
+        created_at = datetime.now(ZoneInfo("Asia/Seoul")).isoformat()
+
         return {
             "client_id": self.client_id,
             "client_name": self.client_name,
@@ -103,7 +119,7 @@ class SupabaseLogHandler(logging.Handler):
             "line_number": record.lineno,
             "app_version": self.app_version,
             "os_info": self.os_info,
-            "created_at": datetime.utcnow().isoformat() + "Z"
+            "created_at": created_at
         }
     
     def _determine_log_type(self, record: logging.LogRecord) -> str:
@@ -138,11 +154,15 @@ class SupabaseLogHandler(logging.Handler):
                 
                 # Supabase 전송 시도
                 success = self._send_to_supabase(log_data)
-                
+
                 if success:
                     consecutive_failures = 0
+                    # 오프라인 로그가 있으면 전송 시도
+                    self._flush_offline_logs()
                 else:
                     consecutive_failures += 1
+                    # 실패 시 오프라인 파일에 저장
+                    self._store_offline(log_data)
                 
                 self.log_queue.task_done()
                 
@@ -176,6 +196,9 @@ class SupabaseLogHandler(logging.Handler):
                 )
                 
                 if response.status_code in [200, 201]:
+                    if not self.connected:
+                        logging.getLogger(__name__).info("Supabase 연결 성공")
+                    self.connected = True
                     return True
                 else:
                     if attempt == max_retries - 1:
@@ -197,7 +220,50 @@ class SupabaseLogHandler(logging.Handler):
             # 재시도 전 대기
             time.sleep(0.5 * (attempt + 1))
         
+        if self.connected:
+            logging.getLogger(__name__).warning("Supabase 연결 끊김")
+        self.connected = False
         return False
+
+    def _store_offline(self, log_data: Dict[str, Any]):
+        try:
+            with open(self.offline_log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_data, ensure_ascii=False) + "\n")
+        except Exception:
+            logging.getLogger(__name__).warning("오프라인 로그 저장 실패")
+
+    def _flush_offline_logs(self):
+        if not self.offline_log_path.exists():
+            return
+        try:
+            with open(self.offline_log_path, "r", encoding="utf-8") as f:
+                lines = [line.strip() for line in f if line.strip()]
+        except Exception:
+            return
+
+        if not lines:
+            return
+
+        remaining = []
+        for line in lines:
+            try:
+                data = json.loads(line)
+            except Exception:
+                continue
+
+            if not self._send_to_supabase(data):
+                remaining.append(json.dumps(data, ensure_ascii=False))
+            else:
+                pass
+
+        try:
+            if remaining:
+                with open(self.offline_log_path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(remaining) + "\n")
+            else:
+                self.offline_log_path.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 class ErrorLogger:
     """프로젝트 전체의 에러 로깅을 관리하는 클래스"""
@@ -220,11 +286,11 @@ class ErrorLogger:
                 root_logger.removeHandler(handler)
         
         # 새 Supabase 핸들러 추가
-        self.supabase_handler.setLevel(logging.WARNING)  # WARNING 이상만 Supabase로 전송
+        self.supabase_handler.setLevel(logging.INFO)  # INFO 이상 Supabase로 전송
         root_logger.addHandler(self.supabase_handler)
         
-        # 포맷터 설정
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        # 포맷터 설정 (한국 시간 사용)
+        formatter = KSTFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         self.supabase_handler.setFormatter(formatter)
     
     def log_system_info(self):

@@ -1,6 +1,8 @@
 import sys
 import os
 import logging
+from zoneinfo import ZoneInfo
+import time
 from pathlib import Path
 import threading
 import signal
@@ -17,14 +19,23 @@ from src.error_logger import initialize_error_logger, get_error_logger, shutdown
 def setup_logging():
     # 로깅 설정
     log_path = Path(os.getenv("APP_LOG_PATH", "app.log"))
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s',
-        handlers=[
-            logging.StreamHandler(),
-            logging.FileHandler(log_path, encoding='utf-8')
-        ]
-    )
+    os.environ["TZ"] = "Asia/Seoul"
+    try:
+        time.tzset()
+    except AttributeError:
+        pass
+
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    formatter.converter = lambda ts: datetime.fromtimestamp(ts, ZoneInfo("Asia/Seoul")).timetuple()
+
+    handlers = [
+        logging.StreamHandler(),
+        logging.FileHandler(log_path, encoding='utf-8')
+    ]
+    for h in handlers:
+        h.setFormatter(formatter)
+
+    logging.basicConfig(level=logging.INFO, handlers=handlers)
 
 def get_last_update_check():
     """마지막 업데이트 확인 시간을 가져옵니다."""
