@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 import requests
 import logging
+from src.error_logger import get_error_logger
 
 SCHEMA_PATH = Path(__file__).parent / "sqlite_schema.sql"
 DB_PATH = Path(os.getenv("CACHE_DB_PATH", "cache.db"))
@@ -88,6 +89,14 @@ class SupabaseCache:
             
         except Exception as e:
             logger.error(f"데이터베이스 초기화 오류: {e}")
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_database_error(
+                    operation="database_initialization",
+                    error=e,
+                    table_name="sqlite_setup"
+                )
         finally:
             conn.close()
 
@@ -109,6 +118,14 @@ class SupabaseCache:
             resp.raise_for_status()
         except requests.Timeout:
             logger.error("Timeout while fetching table '%s'", table_name)
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_network_error(
+                    url=f"{self.base_url}/rest/v1/{table_name}",
+                    error=Exception(f"Timeout while fetching table '{table_name}'"),
+                    method="GET"
+                )
             return
         rows = resp.json()
         if not rows:

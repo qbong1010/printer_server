@@ -19,6 +19,7 @@ from typing import List, Dict, Any
 
 # Use an absolute import so this module works when executed directly.
 from src.database.cache import SupabaseCache
+from src.error_logger import get_error_logger
 
 from src.printer.manager import PrinterManager
 
@@ -271,6 +272,10 @@ class OrderWidget(QWidget):
         except Exception as e:
             logging.error(f"자동 출력 처리 오류: {e}")
             self.notice_label.setText("자동 출력 처리 중 오류가 발생했습니다.")
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_error(e, "자동 출력 처리 오류", {"context": "auto_print_processing"})
 
     def get_unprinteed_orders(self) -> List[Dict[str, Any]]:
         """출력되지 않은 주문들을 가져옵니다."""
@@ -394,6 +399,14 @@ class OrderWidget(QWidget):
         except Exception as e:
             logging.error(f"자동 출력 처리 오류: {e}")
             self.update_order_status(order_id, OrderStatus.PRINT_FAILED)
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_printer_error(
+                    printer_type="auto_print",
+                    error=e,
+                    order_id=str(order_id)
+                )
             return False
 
     def should_retry_print(self, order_data: dict) -> bool:
@@ -437,6 +450,10 @@ class OrderWidget(QWidget):
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 목록 갱신 중 오류가 발생했습니다: {str(e)}")
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_error(e, "주문 목록 갱신 오류", {"context": "refresh_orders"})
         finally:
             self.set_loading_state(False)
     

@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 import requests
 from PySide6.QtCore import QObject, Signal
+from src.error_logger import get_error_logger
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,14 @@ class SupabaseClient(QObject):
             
         except Exception as e:
             logger.exception("주문 데이터 조회 오류: %s", e)
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_network_error(
+                    url=f"{self.base_url}/rest/v1/order",
+                    error=e,
+                    method="GET"
+                )
             return []
 
     def get_order_by_id(self, order_id: int) -> Optional[Dict[str, Any]]:
@@ -120,4 +129,12 @@ class SupabaseClient(QObject):
             return data[0] if data else None
         except Exception as e:
             logger.exception("주문 상세 조회 오류: %s", e)
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_network_error(
+                    url=f"{self.base_url}/rest/v1/order",
+                    error=e,
+                    method="GET"
+                )
             return None

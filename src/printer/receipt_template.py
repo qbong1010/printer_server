@@ -2,8 +2,16 @@
 """Common receipt printing utilities."""
 from typing import Any, Dict
 import logging
-from escpos.printer import file
 from datetime import datetime
+
+# escpos 모듈은 선택적으로 로드 (에러 발생 시 우회)
+try:
+    from escpos.printer import file as escpos_file
+    ESCPOS_AVAILABLE = True
+except ImportError as e:
+    print(f"⚠️ escpos 모듈 로드 실패 (receipt_template): {e}")
+    print("   escpos 관련 기능은 비활성화됩니다.")
+    ESCPOS_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 

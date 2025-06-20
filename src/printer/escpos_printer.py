@@ -1,9 +1,22 @@
 import logging
-from escpos.printer import Usb
-import usb.backend.libusb1
 import os
 import time
 from src.printer.receipt_template import format_receipt_string
+from src.error_logger import get_error_logger
+
+# USB 프린터 관련 모듈 import (에러 발생 시 우회)
+try:
+    from escpos.printer import Usb
+    import usb.backend.libusb1
+    USB_PRINTER_AVAILABLE = True
+except ImportError as e:
+    USB_PRINTER_AVAILABLE = False
+    print(f"⚠️ USB 프린터 모듈 로드 실패: {e}")
+    print("   USB 프린터 기능은 비활성화됩니다.")
+    # 더미 클래스 정의
+    class Usb:
+        def __init__(self, *args, **kwargs):
+            pass
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +68,20 @@ def print_receipt_esc_usb(order, vendor_id, product_id, interface, codepage=0x13
             - 0x03 (3): CP949 / 완성형 한글
             - 0x13 (19): CP949 / 조합형 한글
     """
+    # USB 프린터 모듈이 사용 불가능한 경우
+    if not USB_PRINTER_AVAILABLE:
+        error_msg = "USB 프린터 모듈이 로드되지 않아 출력할 수 없습니다."
+        logger.error(error_msg)
+        # Supabase에도 에러 로깅
+        error_logger = get_error_logger()
+        if error_logger:
+            error_logger.log_printer_error(
+                printer_type="escpos_usb",
+                error=Exception(error_msg),
+                order_id=order.get('order_id', 'Unknown')
+            )
+        return False
+    
     try:
         receipt_text = format_receipt_string(order)
         
@@ -63,10 +90,31 @@ def print_receipt_esc_usb(order, vendor_id, product_id, interface, codepage=0x13
         
     except Exception as e:
         logger.error(f"영수증 텍스트 포맷팅 중 오류 발생: {e}")
+        # Supabase에도 에러 로깅
+        error_logger = get_error_logger()
+        if error_logger:
+            error_logger.log_printer_error(
+                printer_type="escpos_usb",
+                error=e,
+                order_id=order.get('order_id', 'Unknown')
+            )
         return False
 
     # libusb DLL을 현재 디렉토리에서 로드
-    backend = usb.backend.libusb1.get_backend(find_library=lambda x: "./libusb-1.0.dll")
+    try:
+        backend = usb.backend.libusb1.get_backend(find_library=lambda x: "./libusb-1.0.dll")
+    except Exception as e:
+        error_msg = f"libusb 백엔드 생성 실패: {e}"
+        logger.error(error_msg)
+        # Supabase에도 에러 로깅
+        error_logger = get_error_logger()
+        if error_logger:
+            error_logger.log_printer_error(
+                printer_type="escpos_usb",
+                error=e,
+                order_id=order.get('order_id', 'Unknown')
+            )
+        return False
 
     if backend is None:
         logger.error("libusb-1.0.dll을 로드할 수 없습니다. 백엔드 생성 실패.")
@@ -154,6 +202,20 @@ def print_receipt_esc_usb_alternative(order, vendor_id, product_id, interface, c
         interface: USB 인터페이스 번호
         codepage: 프린터 코드페이지
     """
+    # USB 프린터 모듈이 사용 불가능한 경우
+    if not USB_PRINTER_AVAILABLE:
+        error_msg = "USB 프린터 모듈이 로드되지 않아 출력할 수 없습니다 (대안 방법)."
+        logger.error(error_msg)
+        # Supabase에도 에러 로깅
+        error_logger = get_error_logger()
+        if error_logger:
+            error_logger.log_printer_error(
+                printer_type="escpos_usb_alt",
+                error=Exception(error_msg),
+                order_id=order.get('order_id', 'Unknown')
+            )
+        return False
+        
     try:
         receipt_text = format_receipt_string(order)
         
@@ -165,10 +227,31 @@ def print_receipt_esc_usb_alternative(order, vendor_id, product_id, interface, c
         
     except Exception as e:
         logger.error(f"영수증 텍스트 포맷팅 중 오류 발생: {e}")
+        # Supabase에도 에러 로깅
+        error_logger = get_error_logger()
+        if error_logger:
+            error_logger.log_printer_error(
+                printer_type="escpos_usb_alt",
+                error=e,
+                order_id=order.get('order_id', 'Unknown')
+            )
         return False
 
     # libusb DLL을 현재 디렉토리에서 로드
-    backend = usb.backend.libusb1.get_backend(find_library=lambda x: "./libusb-1.0.dll")
+    try:
+        backend = usb.backend.libusb1.get_backend(find_library=lambda x: "./libusb-1.0.dll")
+    except Exception as e:
+        error_msg = f"libusb 백엔드 생성 실패 (대안 방법): {e}"
+        logger.error(error_msg)
+        # Supabase에도 에러 로깅
+        error_logger = get_error_logger()
+        if error_logger:
+            error_logger.log_printer_error(
+                printer_type="escpos_usb_alt",
+                error=e,
+                order_id=order.get('order_id', 'Unknown')
+            )
+        return False
 
     if backend is None:
         logger.error("libusb-1.0.dll을 로드할 수 없습니다. 백엔드 생성 실패.")

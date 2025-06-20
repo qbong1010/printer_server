@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List
 import win32print
 from datetime import datetime, time
+from src.error_logger import get_error_logger, log_exception
 
 from src.printer.escpos_printer import print_receipt_esc_usb  # USB 프린터 출력 함수
 from src.printer.file_printer import print_receipt as file_print_receipt, print_receipt_win  # 파일/윈도우 프린터 출력 함수
@@ -393,6 +394,14 @@ class PrinterManager:
         # 실패 시 오류 로그 작성
         if error_msg:
             logger.error(error_msg)
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_printer_error(
+                    printer_type=printer_type,
+                    error=Exception(error_msg),
+                    order_id=order_data.get('order_id', 'Unknown')
+                )
 
         # 어떤 경우든 파일로 출력
         file_result = file_print_receipt(order_data)
@@ -424,6 +433,14 @@ class PrinterManager:
                 logger.info(f"주방용 영수증 출력 성공: {com_port}")
             else:
                 logger.error(f"주방용 COM 포트 프린터({com_port}) 출력 실패")
+                # Supabase에도 에러 로깅
+                error_logger = get_error_logger()
+                if error_logger:
+                    error_logger.log_printer_error(
+                        printer_type="com_kitchen",
+                        error=Exception(f"주방용 COM 포트 프린터({com_port}) 출력 실패"),
+                        order_id=order_data.get('order_id', 'Unknown')
+                    )
             return result
         else:
             logger.warning(f"지원하지 않는 주방 프린터 타입: {printer_type}")
@@ -442,6 +459,14 @@ class PrinterManager:
         except Exception as e:
             logger.error(f"손님용 영수증 출력 오류: {e}")
             results["customer"] = False
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_printer_error(
+                    printer_type="customer",
+                    error=e,
+                    order_id=order_data.get('order_id', 'Unknown')
+                )
         
         # 주방용 영수증 출력
         try:
@@ -449,6 +474,14 @@ class PrinterManager:
         except Exception as e:
             logger.error(f"주방용 영수증 출력 오류: {e}")
             results["kitchen"] = False
+            # Supabase에도 에러 로깅
+            error_logger = get_error_logger()
+            if error_logger:
+                error_logger.log_printer_error(
+                    printer_type="kitchen",
+                    error=e,
+                    order_id=order_data.get('order_id', 'Unknown')
+                )
         
         return results
 
