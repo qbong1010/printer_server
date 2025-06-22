@@ -98,7 +98,7 @@ def check_for_updates_async():
             return
         
         # GitHub 저장소 설정 - 실제 저장소로 변경하세요
-        github_repo = "your-username/posprinter_supabase"  # 실제 저장소명으로 변경
+        github_repo = "qbong1010/posprinter_supabase"  # 실제 저장소명으로 변경
         
         # 환경변수에서 저장소 설정 가능
         github_repo = os.getenv('GITHUB_REPO', github_repo)
