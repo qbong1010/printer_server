@@ -1,7 +1,7 @@
 {
   "customer_printer": {
     "printer_type": "escpos",
-    "printer_name": null,
+    "printer_name": "OneNote (Desktop)",
     "usb_info": {
       "vendor_id": "0525",
       "product_id": "A700",
@@ -16,17 +16,9 @@
     "enabled": true
   },
   "auto_print": {
-    "enabled": true,
+    "enabled": false,
     "retry_count": 3,
     "retry_interval": 30,
     "check_printer_status": true
-  },
-  "printer_type": "escpos",
-  "printer_name": "SLK-TS400",
-  "usb_info": {
-    "vendor_id": "0525",
-    "product_id": "A700",
-    "interface": "0"
-  },
-  "network_info": {}
+  }
 }

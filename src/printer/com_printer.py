@@ -200,6 +200,7 @@ def print_kitchen_receipt_com(order_data: Dict[str, Any], com_port: str = "COM3"
             # 데이터 전송
             ser.write(full_data)
             ser.flush()
+            print(full_data)
             
             logger.info(f"주방용 영수증 COM 포트 {com_port} 출력 완료 (볼드체, 큰 글자)")
             return True

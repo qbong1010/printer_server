@@ -186,19 +186,23 @@ class SupabaseLogHandler(logging.Handler):
     
     def _send_to_supabase(self, log_data: Dict[str, Any], max_retries: int = 3):
         """실제로 Supabase에 로그 데이터 전송"""
+        print(f"[DEBUG] 로그 전송 시도: {log_data.get('message')}")
         for attempt in range(max_retries):
             try:
+                print(f"[DEBUG] 전송 시도 {attempt + 1}/{max_retries}...")
                 response = requests.post(
                     f"{self.supabase_url}/rest/v1/app_logs",
                     headers=self.headers,
                     json=log_data,
                     timeout=5.0
                 )
+                print(f"[DEBUG] Supabase 응답: {response.status_code}, 내용: {response.text[:200]}")
                 
                 if response.status_code in [200, 201]:
                     if not self.connected:
                         logging.getLogger(__name__).info("Supabase 연결 성공")
                     self.connected = True
+                    print("[DEBUG] 전송 성공, True 반환")
                     return True
                 else:
                     if attempt == max_retries - 1:
@@ -208,12 +212,15 @@ class SupabaseLogHandler(logging.Handler):
                         )
                     
             except requests.exceptions.Timeout:
+                print("[DEBUG] 전송 타임아웃")
                 if attempt == max_retries - 1:
                     logging.getLogger(__name__).warning("Supabase 로그 전송 타임아웃")
-            except requests.exceptions.ConnectionError:
+            except requests.exceptions.ConnectionError as e:
+                print(f"[DEBUG] 연결 오류: {e}")
                 if attempt == max_retries - 1:
                     logging.getLogger(__name__).warning("Supabase 연결 실패")
             except Exception as e:
+                print(f"[DEBUG] 예외 발생: {e}")
                 if attempt == max_retries - 1:
                     logging.getLogger(__name__).error(f"Supabase 로그 전송 중 예외: {e}")
             
@@ -223,6 +230,7 @@ class SupabaseLogHandler(logging.Handler):
         if self.connected:
             logging.getLogger(__name__).warning("Supabase 연결 끊김")
         self.connected = False
+        print("[DEBUG] 전송 최종 실패, False 반환")
         return False
 
     def _store_offline(self, log_data: Dict[str, Any]):

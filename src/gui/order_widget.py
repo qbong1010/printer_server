@@ -44,8 +44,16 @@ class OrderWidget(QWidget):
         self.update_timer.timeout.connect(self.check_for_updates)
         self.update_timer.start(5000)
 
+        # 메시지 표시를 위한 타이머
+        self.message_timer = QTimer()
+        self.message_timer.setSingleShot(True)
+        self.message_timer.timeout.connect(self.clear_temporary_message)
+
         # 초기 주문 로드
         self.refresh_orders()
+        
+        # 프로그램 시작 후 체크박스 상태 동기화
+        self.sync_auto_print_checkbox()
         
     def setup_ui(self):
         # 메인 레이아웃
@@ -151,24 +159,49 @@ class OrderWidget(QWidget):
     @Slot()
     def toggle_auto_print(self, state):
         """자동 출력 기능을 토글합니다."""
-        enabled = state == Qt.Checked
-        logging.info(f"자동 출력 체크박스 상태 변경: {enabled}")
+        # PySide6에서는 Qt.Checked.value와 비교해야 함
+        enabled = state == Qt.Checked.value
+        logging.info(f"자동 출력 체크박스 상태 변경: state={state}, enabled={enabled}")
         
-        # 현재 설정 가져오기
-        config = self.printer_manager.get_auto_print_config()
-        logging.info(f"변경 전 설정: {config}")
-        
-        # 설정 업데이트
-        config["enabled"] = enabled
-        self.printer_manager.set_auto_print_config(config)
-        
-        # 설정 저장 후 다시 확인
-        updated_config = self.printer_manager.get_auto_print_config()
-        logging.info(f"변경 후 설정: {updated_config}")
-        
-        status = "활성화" if enabled else "비활성화"
-        self.notice_label.setText(f"자동 출력이 {status}되었습니다.")
-        logging.info(f"자동 출력 {status} 완료")
+        try:
+            # 현재 설정 가져오기
+            config = self.printer_manager.get_auto_print_config()
+            logging.info(f"변경 전 설정: {config}")
+            
+            # 설정 업데이트
+            old_enabled = config.get("enabled", False)
+            config["enabled"] = enabled
+            logging.info(f"설정 변경: {old_enabled} -> {enabled}")
+            
+            save_success = self.printer_manager.set_auto_print_config(config)
+            logging.info(f"설정 저장 결과: {save_success}")
+            
+            # 설정 저장 후 다시 확인
+            updated_config = self.printer_manager.get_auto_print_config()
+            logging.info(f"변경 후 설정: {updated_config}")
+            
+            # 파일에서도 직접 확인
+            try:
+                import json
+                with open("printer_config.json", "r", encoding="utf-8") as f:
+                    file_config = json.load(f)
+                logging.info(f"파일에서 읽은 auto_print 설정: {file_config.get('auto_print', {})}")
+            except Exception as file_e:
+                logging.error(f"파일 읽기 오류: {file_e}")
+            
+            status = "활성화" if enabled else "비활성화"
+            message = f"자동 출력이 {status}되었습니다."
+            
+            # 메시지 표시 및 로깅
+            logging.info(f"메시지 표시: {message}")
+            self.show_temporary_message(message, 3000)
+            
+        except Exception as e:
+            logging.error(f"자동 출력 설정 변경 중 오류: {e}")
+            logging.exception("전체 예외 스택:")
+            self.show_temporary_message(f"자동 출력 설정 변경 중 오류가 발생했습니다: {str(e)}", 5000)
+    
+
     
     def set_loading_state(self, is_loading):
         """로딩 상태에 따라 UI 요소들을 업데이트합니다."""
@@ -227,7 +260,11 @@ class OrderWidget(QWidget):
         """미출력 주문을 확인하고 자동 출력을 처리합니다."""
         try:
             # 자동 출력이 비활성화된 경우 처리하지 않음
-            if not self.printer_manager.is_auto_print_enabled():
+            auto_print_enabled = self.printer_manager.is_auto_print_enabled()
+            logging.debug(f"check_for_updates 호출됨 - 자동출력 활성화: {auto_print_enabled}")
+            
+            if not auto_print_enabled:
+                logging.debug("자동 출력이 비활성화되어 있어 처리하지 않음")
                 return
                 
             # 주문 관련 테이블 동기화 (항상 수행)
@@ -236,10 +273,16 @@ class OrderWidget(QWidget):
             
             # 미출력 주문들 가져오기
             unprinteed_orders = self.get_unprinteed_orders()
+            logging.info(f"미출력 주문 조회 결과: {len(unprinteed_orders)}개")
             
             if unprinteed_orders:
                 logging.info(f"미출력 주문 {len(unprinteed_orders)}개를 확인했습니다.")
-                self.notice_label.setText(f"미출력 주문 {len(unprinteed_orders)}개 발견")
+                for order in unprinteed_orders:
+                    logging.info(f"미출력 주문 발견: ID={order.get('order_id')}, 회사={order.get('company_name')}")
+                
+                # 임시 메시지가 표시 중이 아닐 때만 미출력 주문 메시지 표시
+                if not self.message_timer.isActive():
+                    self.notice_label.setText(f"미출력 주문 {len(unprinteed_orders)}개 발견")
                 
                 # 각 미출력 주문에 대해 자동 출력 처리
                 for order in unprinteed_orders:
@@ -446,7 +489,9 @@ class OrderWidget(QWidget):
                 detail = self.cache.join_order_detail(order["order_id"])
                 self.add_order(detail)
 
-            self.notice_label.setText("주문 목록이 갱신되었습니다.")
+            # 임시 메시지가 표시 중이 아닐 때만 갱신 메시지 표시
+            if not self.message_timer.isActive():
+                self.notice_label.setText("주문 목록이 갱신되었습니다.")
 
         except Exception as e:
             QMessageBox.warning(self, "오류", f"주문 목록 갱신 중 오류가 발생했습니다: {str(e)}")
@@ -700,3 +745,44 @@ class OrderWidget(QWidget):
             QMessageBox.warning(self, "오류", f"동기화 중 오류가 발생했습니다: {str(e)}")
         finally:
             self.set_loading_state(False)
+
+    def sync_auto_print_checkbox(self, show_message=False):
+        """자동 출력 체크박스 상태를 실제 설정과 동기화합니다."""
+        actual_state = self.printer_manager.is_auto_print_enabled()
+        current_checkbox_state = self.auto_print_checkbox.isChecked()
+        
+        if actual_state != current_checkbox_state:
+            logging.info(f"체크박스 상태 동기화: {current_checkbox_state} -> {actual_state}")
+            # 시그널 연결을 일시적으로 해제하여 무한 루프 방지
+            self.auto_print_checkbox.stateChanged.disconnect()
+            self.auto_print_checkbox.setChecked(actual_state)
+            self.auto_print_checkbox.stateChanged.connect(self.toggle_auto_print)
+            
+            # 메시지 표시 여부는 매개변수로 결정 (기본값: False)
+            if show_message:
+                status = "활성화" if actual_state else "비활성화"
+                self.show_temporary_message(f"자동 출력이 {status}되었습니다.", 3000)
+        
+    def show_temporary_message(self, message: str, duration_ms: int = 2000):
+        """임시 메시지를 지정된 시간 동안 표시합니다."""
+        try:
+            logging.debug(f"show_temporary_message 호출됨: '{message}', 지속시간: {duration_ms}ms")
+            
+            # 메시지 설정
+            self.notice_label.setText(message)
+            
+            # 기존 타이머 중지 및 새 타이머 시작
+            self.message_timer.stop()
+            self.message_timer.start(duration_ms)
+            
+        except Exception as e:
+            logging.error(f"show_temporary_message 오류: {e}")
+            # 오류 발생 시 기본 메시지라도 표시하려고 시도
+            try:
+                self.notice_label.setText(message)
+            except:
+                pass
+        
+    def clear_temporary_message(self):
+        """임시 메시지를 지웁니다."""
+        self.notice_label.setText("")
