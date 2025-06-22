@@ -141,27 +141,24 @@ class AutoUpdater:
             if backup:
                 self.logger.info("현재 버전 백업 중...")
                 if backup_dir.exists():
-                    self._safe_remove_tree(backup_dir)
+                    shutil.rmtree(backup_dir)
                 backup_dir.mkdir()
                 
-                # 중요 파일들 백업 (캐시 폴더 제외)
+                # 중요 파일들 백업
                 important_files = ["main.py", "src", "requirements.txt", "printer_config.json"]
                 for file_name in important_files:
                     file_path = current_dir / file_name
                     if file_path.exists():
-                        try:
-                            if file_path.is_dir():
-                                self._safe_copy_tree(file_path, backup_dir / file_name)
-                            else:
-                                shutil.copy2(file_path, backup_dir / file_name)
-                        except Exception as e:
-                            self.logger.warning(f"백업 중 파일 건너뜀: {file_name} - {e}")
+                        if file_path.is_dir():
+                            shutil.copytree(file_path, backup_dir / file_name)
+                        else:
+                            shutil.copy2(file_path, backup_dir / file_name)
             
             # ZIP 파일 압축 해제
             self.logger.info("업데이트 파일 압축 해제 중...")
             extract_dir = temp_dir / "extracted"
             if extract_dir.exists():
-                self._safe_remove_tree(extract_dir)
+                shutil.rmtree(extract_dir)
             extract_dir.mkdir()
             
             with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -174,7 +171,7 @@ class AutoUpdater:
             else:
                 source_dir = extract_dir
             
-            # 파일 업데이트 (캐시 폴더 제외)
+            # 파일 업데이트
             self.logger.info("파일 업데이트 중...")
             update_files = ["main.py", "src", "requirements.txt"]
             
@@ -183,27 +180,24 @@ class AutoUpdater:
                 dest_path = current_dir / file_name
                 
                 if source_path.exists():
-                    try:
-                        if dest_path.exists():
-                            if dest_path.is_dir():
-                                self._safe_remove_tree(dest_path)
-                            else:
-                                dest_path.unlink()
-                        
-                        if source_path.is_dir():
-                            self._safe_copy_tree(source_path, dest_path)
+                    if dest_path.exists():
+                        if dest_path.is_dir():
+                            shutil.rmtree(dest_path)
                         else:
-                            shutil.copy2(source_path, dest_path)
-                        
-                        self.logger.info(f"업데이트됨: {file_name}")
-                    except Exception as e:
-                        self.logger.warning(f"파일 업데이트 중 오류 (건너뜀): {file_name} - {e}")
+                            dest_path.unlink()
+                    
+                    if source_path.is_dir():
+                        shutil.copytree(source_path, dest_path)
+                    else:
+                        shutil.copy2(source_path, dest_path)
+                    
+                    self.logger.info(f"업데이트됨: {file_name}")
             
             # 버전 정보 업데이트
             self._update_version_info()
             
             # 정리
-            self._safe_remove_tree(temp_dir)
+            shutil.rmtree(temp_dir)
             
             self.logger.info("업데이트가 성공적으로 완료되었습니다.")
             return True
@@ -220,64 +214,6 @@ class AutoUpdater:
                     self.logger.error(f"백업 복원 실패: {restore_error}")
             
             return False
-    
-    def _safe_remove_tree(self, path: Path):
-        """안전하게 디렉토리 트리 삭제 (권한 문제 해결)"""
-        if not path.exists():
-            return
-            
-        def handle_remove_readonly(func, path, exc):
-            """읽기 전용 파일 삭제를 위한 오류 핸들러"""
-            import stat
-            if func in (os.unlink, os.remove) and exc[1].errno == 13:
-                os.chmod(path, stat.S_IWRITE)
-                func(path)
-            else:
-                raise exc[1]
-        
-        try:
-            # __pycache__ 폴더와 .pyc 파일 먼저 정리
-            for root, dirs, files in os.walk(path):
-                # __pycache__ 폴더 찾아서 삭제
-                if '__pycache__' in dirs:
-                    pycache_path = Path(root) / '__pycache__'
-                    try:
-                        shutil.rmtree(pycache_path, onerror=handle_remove_readonly)
-                        dirs.remove('__pycache__')
-                    except:
-                        pass
-                
-                # .pyc 파일 삭제
-                for file in files:
-                    if file.endswith('.pyc'):
-                        try:
-                            os.unlink(Path(root) / file)
-                        except:
-                            pass
-            
-            # 전체 트리 삭제
-            shutil.rmtree(path, onerror=handle_remove_readonly)
-            
-        except Exception as e:
-            self.logger.warning(f"디렉토리 삭제 중 오류: {path} - {e}")
-    
-    def _safe_copy_tree(self, src: Path, dst: Path):
-        """안전하게 디렉토리 트리 복사 (캐시 폴더 제외)"""
-        def ignore_cache_files(dir_path, contents):
-            """캐시 파일들을 복사에서 제외"""
-            ignored = []
-            for item in contents:
-                if item in ('__pycache__', '.pytest_cache', '.mypy_cache'):
-                    ignored.append(item)
-                elif item.endswith('.pyc'):
-                    ignored.append(item)
-            return ignored
-        
-        try:
-            shutil.copytree(src, dst, ignore=ignore_cache_files)
-        except Exception as e:
-            self.logger.warning(f"디렉토리 복사 중 오류: {src} -> {dst} - {e}")
-            raise
     
     def _restore_from_backup(self, backup_dir: Path):
         """백업에서 복원"""

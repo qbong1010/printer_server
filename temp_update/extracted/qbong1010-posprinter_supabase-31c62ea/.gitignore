@@ -1,0 +1,52 @@
+# 환경 변수 파일
+.env
+
+# 가상환경
+venv/
+env/
+ENV/
+
+# Python 캐시 파일들
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# 빌드 관련 파일들
+build/
+dist/
+*.egg-info/
+
+# 로그 파일들
+*.log
+logs/
+
+# 데이터베이스 파일들 (캐시용)
+cache.db
+
+# 프린터 출력 파일들
+src/printer/output/receipt_*.txt
+src/printer/output/*.bin
+deploy/src/printer/output/receipt_*.txt
+
+# 임시 JSON 파일들
+last_update_check.json
+
+#임시 영수증
+*.bin
+
+# 실행 파일들
+*.exe
+
+# IDE 관련 파일들
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Windows 관련 파일들
+Thumbs.db
+Desktop.ini
+
+# PyInstaller 빌드 결과물 (설정 파일은 유지)
+# *.spec

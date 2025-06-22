@@ -1,5 +1,5 @@
 {
-  "version": "1.0.3",
+  "version": "1.0.4",
   "updated_at": "2025-01-27",
-  "description": "GUI 업데이트 확인 버튼 추가 및 자동 업데이트 시스템 완성"
+  "description": "Windows 권한 문제 해결 및 캐시 파일 처리 개선"
 } 
