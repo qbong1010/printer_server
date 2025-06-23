@@ -97,8 +97,7 @@ def check_for_updates_async():
         if not should_check_for_updates():
             return
 
-        env_repo = os.getenv('GITHUB_REPO', github_repo)
-        github_repo = normalize_github_repo(env_repo)
+        github_repo = os.getenv('GITHUB_REPO', github_repo)
 
         logging.info("업데이트 확인을 시작합니다...")
         
