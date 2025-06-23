@@ -38,6 +38,47 @@ class SupabaseCache:
         }
 
     # ------------------------------------------------------------------
+    def _get_meta(self, key: str) -> Optional[str]:
+        """cache_meta 테이블에서 값을 조회합니다."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM cache_meta WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    def _set_meta(self, key: str, value: str) -> None:
+        """cache_meta 테이블에 값을 저장합니다."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "REPLACE INTO cache_meta (key, value) VALUES (?, ?)", (key, value)
+        )
+        conn.commit()
+        conn.close()
+
+    def get_last_processed_order_id(self) -> int:
+        """마지막으로 처리한 주문 ID를 반환합니다."""
+        value = self._get_meta("last_processed_order_id")
+        try:
+            return int(value) if value is not None else 0
+        except ValueError:
+            return 0
+
+    def set_last_processed_order_id(self, order_id: int) -> None:
+        """마지막으로 처리한 주문 ID를 저장합니다."""
+        self._set_meta("last_processed_order_id", str(order_id))
+
+    def get_max_order_id(self) -> int:
+        """현재 캐시에 저장된 최대 주문 ID를 반환합니다."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT MAX(order_id) FROM "order"')
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] or 0
+
+    # ------------------------------------------------------------------
     def setup_sqlite(self) -> None:
         """로컬 SQLite 데이터베이스와 테이블을 초기화합니다."""
         try:
