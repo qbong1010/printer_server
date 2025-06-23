@@ -96,9 +96,8 @@ def check_for_updates_async():
         # 업데이트 확인 필요성 체크
         if not should_check_for_updates():
             return
-
-        env_repo = os.getenv('GITHUB_REPO', github_repo)
-        github_repo = normalize_github_repo(env_repo)
+            
+        github_repo = https://api.github.com/repos/qbong1010/posprinter_supabase/releases/latest
 
         logging.info("업데이트 확인을 시작합니다...")
         
