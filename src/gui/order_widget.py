@@ -36,6 +36,7 @@ class OrderWidget(QWidget):
         self.printer_manager = PrinterManager()
         self.cache = SupabaseCache(db_path=db_config['path'], supabase_config=supabase_config)
         self.cache.setup_sqlite()
+        self._initialize_last_processed_order_id()
         self.setup_ui()
         self.orders = []
 
@@ -54,6 +55,12 @@ class OrderWidget(QWidget):
         
         # 프로그램 시작 후 체크박스 상태 동기화
         self.sync_auto_print_checkbox()
+
+    def _initialize_last_processed_order_id(self):
+        """프로그램 시작 시 마지막으로 처리한 주문 ID를 설정합니다."""
+        if self.cache.get_last_processed_order_id() == 0:
+            last_id = self.cache.get_max_order_id()
+            self.cache.set_last_processed_order_id(last_id)
         
     def setup_ui(self):
         # 메인 레이아웃
@@ -271,8 +278,8 @@ class OrderWidget(QWidget):
             for table in ["order", "order_item", "order_item_option"]:
                 self.cache.fetch_and_store_table(table)
             
-            # 미출력 주문들 가져오기
-            unprinteed_orders = self.get_unprinteed_orders()
+            last_id = self.cache.get_last_processed_order_id()
+            unprinteed_orders = self.get_unprinteed_orders(min_order_id=last_id)
             logging.info(f"미출력 주문 조회 결과: {len(unprinteed_orders)}개")
             
             if unprinteed_orders:
@@ -301,10 +308,12 @@ class OrderWidget(QWidget):
                     
                     if success:
                         logging.info(f"주문 {order_id} 자동 출력 성공")
-                        # 출력 성공 시 is_printed 상태 업데이트
                         self.update_is_printed_status(order_id, True)
                     else:
                         logging.warning(f"주문 {order_id} 자동 출력 실패")
+
+                    # 처리한 주문 ID 기록
+                    self.cache.set_last_processed_order_id(order_id)
                 
                 # UI 새로고침
                 self.refresh_orders()
@@ -320,24 +329,28 @@ class OrderWidget(QWidget):
             if error_logger:
                 error_logger.log_error(e, "자동 출력 처리 오류", {"context": "auto_print_processing"})
 
-    def get_unprinteed_orders(self) -> List[Dict[str, Any]]:
+    def get_unprinteed_orders(self, min_order_id: int = 0) -> List[Dict[str, Any]]:
         """출력되지 않은 주문들을 가져옵니다."""
         conn = sqlite3.connect(self.cache.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
-        # is_printed가 0(False)인 주문들을 최신순으로 가져오기
+
         query = """
         SELECT o.order_id, o.company_id, o.is_dine_in, o.total_price, o.created_at,
                c.company_name
         FROM "order" o
         JOIN company c ON c.company_id = o.company_id
         WHERE o.is_printed = 0
-        ORDER BY o.created_at DESC
-        LIMIT 10
         """
-        
-        rows = cursor.execute(query).fetchall()
+
+        params = []
+        if min_order_id:
+            query += " AND o.order_id > ?"
+            params.append(min_order_id)
+
+        query += " ORDER BY o.created_at DESC LIMIT 10"
+
+        rows = cursor.execute(query, params).fetchall()
         conn.close()
         return [dict(row) for row in rows]
 
